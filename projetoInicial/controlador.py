@@ -1,0 +1,433 @@
+from flask import Flask, render_template, request, session, redirect, url_for
+from werkzeug.utils import secure_filename
+import os
+from functools import wraps
+import controlador_BD
+
+app = Flask(__name__)
+app.secret_key = "chave_secreta"
+
+UPLOAD_FOLDER = 'static/uploads'
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
+
+controlador_BD.criarTabela()
+
+def verificar(func):
+    @wraps(func)
+    def verificarLogado(*args, **kwargs):
+        if "user" not in session:
+            return redirect(url_for("home"))
+        return func(*args, **kwargs)
+    return verificarLogado
+
+def verificar_adm(func):
+    @wraps(func)
+    def verificarLogado(*args, **kwargs):
+        if "user" not in session:
+            return redirect(url_for("home"))
+
+        if session.get("user", {}).get("departamento") != "admin":
+            msg = "Acesso negado."
+            return render_template("logado.html", mensagem=msg)
+
+        return func(*args, **kwargs)
+    return verificarLogado
+
+
+def autenticar(func): 
+    @wraps(func)
+    def autenticar_usuario(*args, **kwargs):
+        codigo = request.form.get("codigoUsuario") or request.form.get("matricula")
+        senha = request.form.get("senhaUsuario") or request.form.get("senha")
+
+        if not codigo or not senha:
+            msg = "Por favor, preencha o código e a senha."
+            return render_template("home.html", mensagem=msg)
+
+        try:
+            codigo = int(codigo)
+        except ValueError:
+            msg = "O código deve conter apenas números."
+            return render_template("home.html", mensagem=msg)
+
+        logado = controlador_BD.autenticar(codigo, senha)
+        
+        if logado:
+            session["usuario"] = codigo 
+            session["codigo"] = codigo
+
+            return func(*args, **kwargs)
+        else:
+            msg = "Usuário ou senha incorretos."
+            return render_template("home.html", mensagem=msg)
+
+
+    return autenticar_usuario
+
+@app.route('/')
+def home():
+    if "usuario" in session:
+        return redirect(url_for("rotaLogado"))
+    return render_template("home.html", logado=False)
+
+@app.route('/autenticar', methods=['POST'])
+def autenticar():
+
+    codigo = request.form.get('codigoUsuario')
+    senha = request.form.get('senhaUsuario')
+
+    usuario_banco = controlador_BD.autenticar(codigo, senha)
+
+    if usuario_banco:
+        #eh_admin = True if usuario_banco['departamento'].lower() == 'admin' else False
+        
+        #avatar_gerado = f"https://ui-avatars.com/api/?name={usuario_banco['nome']}&background=8b5cf6&color=fff&rounded=true"
+
+        session['user'] = {
+            'name': usuario_banco['nome'],
+            'codigo': usuario_banco['codigo'],
+            'departamento': usuario_banco['departamento'],
+            'isAdmin': True if usuario_banco['departamento'].lower() == 'admin' else False,
+            'biografia': usuario_banco['biografia'] if 'biografia' in usuario_banco.keys() else "",
+            'avatar': usuario_banco['foto'] if ('foto' in usuario_banco.keys() and usuario_banco['foto']) else f"https://ui-avatars.com/api/?name={usuario_banco['nome']}&background=8b5cf6&color=fff&rounded=true"
+        }
+        
+        
+        return redirect('/logado')
+    
+    else:
+        return render_template('home.html', mensagem="Código ou senha incorretos!")
+
+
+controlador_BD.criarTabelaPostagensEComentarios()
+
+@app.route("/logado")
+@verificar
+def feed_logado():
+
+    filmes = controlador_BD.listarFuncionario() 
+
+    if hasattr(controlador_BD, 'listarFilmes'):
+        filmes = controlador_BD.listarFilmes()
+        
+    postagens = controlador_BD.listarPostagens()
+    return render_template("logado.html", filmes=filmes, postagens=postagens)
+
+@app.route("/logado/nova_postagem", methods=["POST"])
+@verificar
+def nova_postagem():
+    
+    usuario_codigo = session['user']['codigo']
+    usuario_nome = session['user']['name']
+    usuario_avatar = session['user'].get('avatar')
+
+    filme_id = request.form.get('filme_id')
+    conteudo = request.form.get('conteudo')
+    
+    feito_por_ia = int(request.form.get('feito_por_ia', 0))
+    modelo_ia = request.form.get('modelo_ia') if feito_por_ia else None
+    prompt_ia = request.form.get('prompt_ia') if feito_por_ia else None
+
+    # Tratamento de Imagens Unificado (Arquivo local ou URL externa)
+    imagem_url = request.form.get('imagem_url', '').strip()
+    file = request.files.get('imagem_arquivo')
+    
+    imagem_final = None
+    if file and file.filename != '':
+        filename = secure_filename(file.filename)
+        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+        imagem_final = '/' + app.config['UPLOAD_FOLDER'] + '/' + filename
+    elif imagem_url:
+        imagem_final = imagem_url
+
+    controlador_BD.inserirPostagem(
+        usuario_codigo, usuario_nome, usuario_avatar, 
+        filme_id, conteudo, imagem_final, 
+        feito_por_ia, modelo_ia, prompt_ia
+    )
+    return redirect(url_for('feed_logado'))
+
+@app.route("/logado/excluir/<int:id_postagem>", methods=["POST"])
+@verificar
+def excluir_postagem(id_postagem):
+
+    usuario_codigo = session['user']['codigo']
+    is_admin = session['user']['isAdmin']
+    
+    controlador_BD.removerPostagem(id_postagem, usuario_codigo, is_admin)
+    
+    return redirect(request.referrer or url_for('feed_logado'))
+
+@app.route("/salvar-biografia", methods=["POST"])
+@verificar
+def salvar_biografia():
+    nova_bio = request.form.get("novaBiografia")
+    usuario_codigo = session['user']['codigo']
+    
+    controlador_BD.atualizarBiografia(usuario_codigo, nova_bio)
+    
+    session['user']['biografia'] = nova_bio
+    session.modified = True
+    
+    return redirect(url_for('rotaPerfil'))
+
+@app.route("/logado/curtir/<int:id_postagem>", methods=["POST"])
+@verificar
+def curtir_feed(id_postagem):
+    # Recupera o identificador único do usuário conectado na sessão
+    usuario_codigo = session['user']['codigo']
+    
+    # Passa o ID da postagem e o código do usuário para controle único de curtidas
+    controlador_BD.curtirPostagem(id_postagem, usuario_codigo)
+    return redirect(url_for('feed_logado'))
+
+@app.route("/logado/comentar/<int:id_postagem>", methods=["POST"])
+@verificar
+def comentar_feed(id_postagem):
+
+    usuario_codigo = session['user']['codigo']
+    usuario_nome = session['user']['name']
+    conteudo = request.form.get('conteudo_comentario')
+
+    if conteudo:
+        controlador_BD.inserirComentario(id_postagem, usuario_codigo, usuario_nome, conteudo)
+    return redirect(url_for('feed_logado'))
+
+@app.route('/logout')
+def logout():
+    session.pop('user', None)
+    return redirect('/')
+
+@app.route("/perfil")
+@verificar
+def rotaPerfil():
+
+    usuario_codigo = session['user']['codigo']
+
+    minhas_postagens = controlador_BD.listarPostagensPorUsuario(usuario_codigo)
+
+    return render_template("perfil.html", postagens=minhas_postagens)
+
+@app.route('/database')
+@verificar_adm  
+def rotaDatabase():
+    filmes = controlador_BD.listarFilmes()
+    estudios = controlador_BD.listarEstudios()
+    return render_template("database.html", filmes=filmes, estudios=estudios)
+
+@app.route('/database/novo_filme', methods=['POST'])
+@verificar_adm  
+def cadastrarFilme():
+    titulo = request.form.get('titulo')
+    data_lancamento = request.form.get('data_lancamento')
+    sinopse = request.form.get('sinopse')
+    estudio_id = request.form.get('estudio_id')
+    imagem = request.form.get('imagem_arquivo')
+    
+    if not titulo or not data_lancamento:
+        return redirect(url_for('rotaDatabase'))
+        
+    controlador_BD.inserirFilme(titulo, data_lancamento, sinopse, estudio_id, imagem)
+    return redirect(url_for('rotaDatabase'))
+
+@app.route('/database/novo_estudio', methods=['POST'])
+@verificar_adm
+def cadastrarEstudio():
+    nome = request.form.get('nome')
+    imagem_url = request.form.get('imagem_url')
+    
+    if not nome:
+        return redirect(url_for('rotaDatabase'))
+        
+    caminho_foto = imagem_url
+    
+    if 'imagem_arquivo' in request.files:
+        file = request.files['imagem_arquivo']
+        if file and file.filename != '':
+            filename = secure_filename(f"estudio_{file.filename}")
+            caminho_salvar = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(caminho_salvar)
+            caminho_foto = f"/{app.config['UPLOAD_FOLDER']}/{filename}"
+            
+    if not caminho_foto:
+        caminho_foto = f"https://ui-avatars.com/api/?name={nome}&background=8b5cf6&color=fff&rounded=true"
+        
+    controlador_BD.inserirEstudio(nome, caminho_foto)
+    return redirect(url_for('rotaDatabase'))
+
+@app.route('/database/editar_filme', methods=['POST'])
+@verificar_adm
+def editarFilme():
+    id_filme = request.form.get('id')
+    titulo = request.form.get('titulo')
+    data_lancamento = request.form.get('data_lancamento')
+    sinopse = request.form.get('sinopse')
+    estudio_id = request.form.get('estudio_id')
+    imagem_url = request.form.get('imagem_url')
+    imagem_atual = request.form.get('imagem_atual') # Pega a imagem antiga se nenhuma nova for enviada
+    
+    caminho_foto = imagem_url if imagem_url else imagem_atual
+    
+    if 'imagem_arquivo' in request.files:
+        file = request.files['imagem_arquivo']
+        if file and file.filename != '':
+            filename = secure_filename(f"filme_{file.filename}")
+            caminho_salvar = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(caminho_salvar)
+            caminho_foto = f"/{app.config['UPLOAD_FOLDER']}/{filename}"
+            
+    if not caminho_foto:
+        caminho_foto = "https://images.unsplash.com/photo-1440404653325-ab127d49abc1?q=80&w=400"
+        
+    controlador_BD.atualizarFilme(id_filme, titulo, data_lancamento, sinopse, estudio_id, caminho_foto)
+    return redirect(url_for('rotaDatabase'))
+
+@app.route('/database/editar_estudio', methods=['POST'])
+@verificar_adm
+def editarEstudio():
+    id_estudio = request.form.get('id')
+    nome = request.form.get('nome')
+    imagem_url = request.form.get('imagem_url')
+    imagem_atual = request.form.get('imagem_atual')
+    
+    caminho_foto = imagem_url if imagem_url else imagem_atual
+    
+    if 'imagem_arquivo' in request.files:
+        file = request.files['imagem_arquivo']
+        if file and file.filename != '':
+            filename = secure_filename(f"estudio_{file.filename}")
+            caminho_salvar = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(caminho_salvar)
+            caminho_foto = f"/{app.config['UPLOAD_FOLDER']}/{filename}"
+            
+    if not caminho_foto:
+        caminho_foto = "https://images.unsplash.com/photo-1440404653325-ab127d49abc1?q=80&w=400"
+        
+    controlador_BD.atualizarEstudio(id_estudio, nome, caminho_foto)
+    return redirect(url_for('rotaDatabase'))
+
+@app.route('/atualizar-perfil', methods=['POST'])
+def atualizar_perfil():
+    nome = request.form.get('nome')
+    genero = request.form.get('genero')
+    if genero == 'Outro':
+        genero = request.form.get('genero_customizado')
+        
+    avatar_url = request.form.get('avatar_url')
+    avatar_file = request.files.get('avatar')
+    
+    avatar_final = session['user']['avatar']
+    
+    if avatar_url and avatar_url.strip():
+        avatar_final = avatar_url.strip()
+        
+    if avatar_file and avatar_file.filename != '':
+        nome_arquivo = secure_filename(avatar_file.filename)
+        caminho = os.path.join('static/uploads', nome_arquivo)
+        avatar_file.save(caminho)
+        avatar_final = '/' + caminho 
+        
+    # --- NOVIDADE: RECUPERANDO DADOS E SALVANDO NO BANCO ---
+    codigo_usuario = session['user']['codigo']
+    biografia_atual = session['user'].get('biografia', '')
+    
+    # Chama o banco de dados para salvar de forma permanente
+    controlador_BD.atualizar_perfil_usuario(codigo_usuario, nome, biografia_atual, avatar_final, genero)
+    # -------------------------------------------------------
+
+    # Atualizando a sessão visual
+    session['user']['name'] = nome
+    session['user']['genero'] = genero
+    session['user']['avatar'] = avatar_final
+    session.modified = True
+    
+    return redirect('/perfil')
+
+@app.route("/cadastrar", methods=['GET'])
+def exibirCadastro():
+    return render_template("cadastrar_usuario.html")
+
+@app.route("/cadastrar", methods=['POST'])
+def cadastrarFuncionario():
+    matricula = request.form.get("codigo") 
+    nome = request.form.get("nome")
+    idade = int(request.form.get("idade") or 0)
+    departamento = request.form.get("departamento")
+    senha = request.form.get("senha")
+
+    controlador_BD.inserirFuncionario(nome, matricula, idade, departamento, senha)
+    
+    mensagem = f"Usuário {nome} adicionado com sucesso."
+    return render_template("cadastrar_usuario.html", mensagem=mensagem)
+
+@app.route("/listar", methods=['GET', 'POST'])
+@verificar
+def rotaListar():
+    return render_template("listar.html", lista=controlador_BD.listarFuncionario())
+
+@app.route("/listar2")
+@verificar
+def rotaListar2():
+    funcionarios = controlador_BD.listarFuncionario()
+    mensagem = ""
+    for f in funcionarios:
+
+        mensagem += f"""
+            <tr>
+            <td>{f['nome']}</td>
+            <td>{f['idade']}</td>
+            <td>{f['departamento']}</td>
+            </tr> <br>
+        """
+    return render_template("listar2.html", mensagem=mensagem)
+
+
+@app.route('/alterar-senha', methods=['POST'])
+def atualizar_senha():
+    if not session.get('user'):
+        return redirect('/')
+    
+    codigo_manual = request.form.get('codigo_confirmacao')
+    senha_atual = request.form.get('senha_atual')
+    senha_nova = request.form.get('senha_nova')
+
+    usuario_valido = controlador_BD.autenticar(codigo_manual, senha_atual)
+
+    if usuario_valido:
+        controlador_BD.alterarSenha(codigo_manual, senha_nova)
+
+        if codigo_manual == session['user']['codigo']:
+            session['user']['senha'] = senha_nova
+            session.modified = True
+            
+        return render_template('perfil.html', mensagem="Sua senha foi alterada com sucesso no banco de dados!")
+    else:
+        return render_template('perfil.html', mensagem="Erro: Validação falhou! Código do usuário ou senha atual incorretos.")
+
+# @app.route("/remover/<codigo>")
+# @verificar_adm
+# def removerFuncionario(codigo):
+#     funcionario = buscarFuncionario(codigo)
+
+#     if funcionario is None:
+#         msg = "Funcionário não encontrado."
+#         return render_template("listar.html", lista=controlador_BD.listarFuncionario(), mensagem=msg)
+
+#     controlador_BD.removerFuncionario(codigo)
+#     msg = "Funcionário removido com sucesso."
+#     return render_template("listar.html", lista=controlador_BD.listarFuncionario(), mensagem=msg)
+
+
+def buscarFuncionario(codigo):
+    if not codigo:
+        return None
+    funcionario = controlador_BD.buscarFuncionario(codigo)
+    if funcionario:
+        return funcionario
+    return None
+
+if __name__ == '__main__':
+    app.run(debug=True)

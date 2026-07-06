@@ -1,0 +1,311 @@
+{% extends 'base.html' %}
+
+{% block title %}Meu Perfil - FILMASSO{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-6">
+    
+    <div class="bg-darkCard border border-darkBorder rounded-2xl p-6 relative overflow-hidden">
+        <div class="absolute top-0 left-0 right-0 h-32 bg-gradient-to-r from-brand-700 to-brand-900 opacity-40"></div>
+
+        <div class="relative pt-12 flex flex-col sm:flex-row items-center sm:items-end gap-5 justify-between border-b border-darkBorder/40 pb-6">
+            <div class="flex flex-col sm:flex-row items-center sm:items-end gap-5 text-center sm:text-left">
+                <img class="w-28 h-28 rounded-2xl object-cover ring-4 ring-zinc-900 bg-zinc-800 relative z-10 shadow-xl"
+                    src="{{ session['user']['avatar'] }}" alt="Avatar de {{ session['user']['name'] }}">
+
+                <div class="space-y-1">
+                    <h2 class="text-2xl font-bold text-white">{{ session['user']['name'] }}</h2>
+                    <div class="text-xs text-zinc-500 uppercase tracking-wider font-semibold flex items-center justify-center sm:justify-start gap-1.5">
+                        <i data-lucide="shield" class="w-3 h-3"></i>
+                        <p>{{ session['user']['departamento'] }}</p>
+                        
+                        {% if session['user'].get('genero') and session['user']['genero'] != 'Prefiro não informar' %}
+                            <span class="text-brand-500 text-lg leading-none">•</span>
+                            <p>{{ session['user']['genero'] }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div> <button onclick="openEditProfileModal()" class="bg-zinc-800 hover:bg-zinc-700 border border-zinc-700/50 text-zinc-200 text-xs font-bold px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 relative z-10 self-center sm:self-end">
+                <i data-lucide="edit-3" class="w-3.5 h-3.5"></i> Editar Perfil
+            </button>
+        </div>
+
+        <div class="mt-5 relative z-10">
+            
+            <div id="bloco-bio-ver" class="space-y-3">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <i data-lucide="user" class="w-3.5 h-3.5 text-brand-500"></i> Biografia
+                    </h3>
+                    <button onclick="alternarModoBio(true)" class="text-brand-400 hover:text-brand-300 text-xs font-semibold flex items-center gap-1 transition-all">
+                        <i data-lucide="pencil" class="w-3 h-3"></i> Editar Biografia
+                    </button>
+                </div>
+                <p class="text-sm text-zinc-300 leading-relaxed bg-zinc-950/30 p-4 rounded-xl border border-darkBorder/40">
+                    {% if session['user'].get('biografia') %}
+                        {{ session['user']['biografia'] }}
+                    {% else %}
+                        <span class="italic text-zinc-600 text-xs">Nenhuma biografia adicionada ainda... Clique em Editar para escrever algo!</span>
+                    {% endif %}
+                </p>
+            </div>
+
+            <div id="bloco-bio-editar" class="hidden space-y-3">
+                <h3 class="text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <i data-lucide="pencil" class="w-3.5 h-3.5 text-brand-500"></i> Editar sua Biografia
+                </h3>
+                <form action="/salvar-biografia" method="POST" class="space-y-3">
+                    <textarea name="novaBiografia" rows="4" maxlength="500" placeholder="Conte um pouco sobre você, seus filmes favoritos..."
+                        class="w-full px-4 py-3 bg-zinc-950 border border-darkBorder rounded-xl text-sm text-zinc-300 placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-brand-500 transition-all resize-none">{{ session['user'].get('biografia', '') }}</textarea>
+                    <div class="flex justify-end gap-2">
+                        <button type="button" onclick="alternarModoBio(false)" class="px-4 py-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 border border-darkBorder text-xs font-bold rounded-xl transition-all">
+                            Cancelar
+                        </button>
+                        <button type="submit" class="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-brand-600/10">
+                            Salvar Alterações
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+        </div>
+
+    </div> 
+
+    <div class="space-y-4 mt-8">
+        <h3 class="text-base font-bold text-white flex items-center gap-2 px-1">
+            <i data-lucide="message-square" class="text-brand-500 w-4 h-4"></i> Minhas Publicações
+        </h3>
+
+        {% for post in postagens %}
+        <div class="bg-darkCard border border-darkBorder rounded-2xl p-6 space-y-4 hover:border-zinc-800 transition-all">
+            
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <img class="w-10 h-10 rounded-xl object-cover bg-zinc-800 border border-zinc-700/50" 
+                         src="{{ post.usuario_avatar if post.usuario_avatar else 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=150' }}" 
+                         alt="Avatar de {{ post.usuario_nome }}">
+                    <div>
+                        <h4 class="text-sm font-bold text-zinc-200">{{ post.usuario_nome }}</h4>
+                        <p class="text-[10px] text-zinc-500 font-medium font-mono mt-0.5">{{ post.data_postagem }}</p>
+                    </div>
+                </div>
+                
+                <div class="flex items-center gap-2">
+                    {% if post.filme_titulo %}
+                    <span class="bg-brand-500/10 text-brand-400 border border-brand-500/20 text-[11px] font-semibold px-2.5 py-1 rounded-lg flex items-center gap-1">
+                        <i data-lucide="film" class="w-3 h-3"></i> {{ post.filme_titulo }}
+                    </span>
+                    {% endif %}
+                    
+                    {% if post.feito_por_ia %}
+                    <span class="bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[11px] font-semibold px-2.5 py-1 rounded-lg flex items-center gap-1" title="Prompt: {{ post.prompt_ia }}">
+                        <i data-lucide="cpu" class="w-3 h-3"></i> IA: {{ post.modelo_ia }}
+                    </span>
+                    {% endif %}
+
+                    {% if session['user']['isAdmin'] or post.usuario_codigo|string == session['user']['codigo']|string %}
+                    <form action="/logado/excluir/{{ post.id }}" method="POST" onsubmit="return confirm('Tem certeza que deseja excluir esta postagem?');" class="inline">
+                        <button type="submit" class="text-zinc-500 hover:text-red-500 transition-all p-1 rounded-lg hover:bg-red-500/10" title="Excluir Postagem">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+
+            <p class="text-zinc-300 text-sm whitespace-pre-wrap leading-relaxed">{{ post.conteudo }}</p>
+
+            {% if post.imagem %}
+            <div class="rounded-xl overflow-hidden border border-darkBorder bg-zinc-950 max-h-[380px] flex items-center justify-center">
+                <img src="{{ post.imagem }}" alt="Imagem da publicação" class="w-full h-full object-cover">
+            </div>
+            {% endif %}
+
+            <div class="flex items-center gap-4 pt-3 border-t border-darkBorder text-xs">
+                <form action="/logado/curtir/{{ post.id }}" method="POST">
+                    <button type="submit" class="flex items-center gap-1.5 text-zinc-400 hover:text-rose-400 transition-all font-semibold bg-transparent border-0 cursor-pointer">
+                        <i data-lucide="heart" class="w-4 h-4 {% if post.curtidas > 0 %}text-rose-500 fill-rose-500{% endif %}"></i> 
+                        <span>{{ post.curtidas }} Curtidas</span>
+                    </button>
+                </form>
+            </div>
+
+            {% if post.comentarios %}
+            <div class="bg-zinc-950/40 border border-darkBorder/60 rounded-xl p-4 space-y-3 mt-2">
+                {% for com in post.comentarios %}
+                <div class="text-xs flex flex-col gap-1 border-b border-zinc-900 last:border-0 pb-2 last:pb-0">
+                    <div class="flex items-center gap-1.5">
+                        <span class="font-bold text-zinc-300">{{ com.usuario_nome }}</span>
+                        <span class="text-[9px] text-zinc-600 font-mono">#{{ com.usuario_codigo }}</span>
+                    </div>
+                    <p class="text-zinc-400 leading-normal">{{ com.conteudo }}</p>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <form action="/logado/comentar/{{ post.id }}" method="POST" class="pt-2">
+                <div class="flex gap-2">
+                    <input type="text" name="conteudo_comentario" required placeholder="Escreva um comentário..."
+                        class="flex-1 px-4 py-2.5 bg-zinc-950 border border-darkBorder rounded-xl text-xs text-zinc-300 placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-brand-500 transition-all">
+                    <button type="submit" class="bg-zinc-800 hover:bg-zinc-700 border border-zinc-700/60 text-zinc-300 px-4 py-2.5 rounded-xl text-xs font-bold transition-all shrink-0">
+                        Enviar
+                    </button>
+                </div>
+            </form>
+        </div>
+        {% else %}
+        <div class="bg-darkCard border border-darkBorder rounded-2xl p-6 text-center text-zinc-500 text-xs">
+            <p>Você ainda não fez nenhuma publicação.</p>
+        </div>
+        {% endfor %}
+    </div>
+
+</div> 
+
+<div id="edit-profile-modal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div class="bg-darkCard border border-darkBorder rounded-2xl p-6 max-w-md w-full relative space-y-4">
+        <div class="flex items-center justify-between">
+            <h3 class="text-base font-bold text-white flex items-center gap-2">
+                <i data-lucide="user-cog" class="text-brand-500 w-5 h-5"></i> Atualizar Perfil
+            </h3>
+            <button onclick="closeEditProfileModal()" class="text-zinc-500 hover:text-zinc-300 transition-all">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+        <form action="/atualizar-perfil" method="POST" enctype="multipart/form-data" class="space-y-4 text-xs">
+            <div class="space-y-1.5">
+                <label class="text-zinc-400 font-semibold uppercase tracking-wider">Nome Completo</label>
+                <input type="text" name="nome" value="{{ session['user']['name'] }}" required
+                    class="w-full px-4 py-3 bg-zinc-950 border border-darkBorder rounded-xl text-zinc-300 placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-brand-500 transition-all">
+            </div>
+            
+            <div class="space-y-2 mt-4">
+                <label for="genero-select" class="block text-sm font-medium text-zinc-400">Gênero</label>
+                <select name="genero" id="genero-select" class="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500">
+                    <option value="Homem" {% if session['user'].get('genero') == 'Homem' %}selected{% endif %}>Homem</option>
+                    <option value="Mulher" {% if session['user'].get('genero') == 'Mulher' %}selected{% endif %}>Mulher</option>
+                    <option value="Não Binário" {% if session['user'].get('genero') == 'Não Binário' %}selected{% endif %}>Não Binário</option>
+                    <option value="Outro">Prefiro me autodescrever</option>
+                    <option value="Prefiro não informar" {% if session['user'].get('genero') == 'Prefiro não informar' %}selected{% endif %}>Prefiro não informar</option>
+                </select>
+                
+                <input type="text" name="genero_customizado" id="custom-gender-input" 
+                       class="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 hidden mt-2" 
+                       placeholder="Descreva seu gênero...">
+            </div>
+
+            <div class="space-y-1.5">
+                <label class="text-zinc-400 font-semibold uppercase tracking-wider">Foto de Perfil (Avatar)</label>
+                <div class="flex gap-2 items-center">
+                    <input type="url" name="avatar_url" placeholder="Cole a URL da imagem aqui..."
+                        class="flex-1 px-4 py-3 bg-zinc-950 border border-darkBorder rounded-xl text-xs text-zinc-300 placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-brand-500 transition-all">
+                    
+                    <label class="bg-zinc-800 hover:bg-zinc-700 border border-zinc-700/50 text-zinc-200 text-xs font-bold px-4 py-3 rounded-xl transition-all flex items-center gap-2 cursor-pointer shrink-0 h-[42px]">
+                        <i data-lucide="upload" class="w-3.5 h-3.5"></i>
+                        <span>Upload</span>
+                        <input type="file" name="avatar" accept="image/*" class="hidden" onchange="exibirNomeArquivo(this)">
+                    </label>
+                </div>
+                <p id="file-name-preview" class="text-[10px] text-brand-400 italic hidden mt-1"></p>
+            </div>
+
+            <div class="pt-2 flex flex-col gap-2">
+                <button type="submit" class="w-full bg-brand-600 hover:bg-brand-500 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-brand-600/20">
+                    Salvar Dados Gerais
+                </button>
+                <button type="button" onclick="switchToPasswordModal()" class="w-full bg-zinc-950 hover:bg-zinc-900 text-zinc-400 border border-darkBorder font-bold py-3 rounded-xl transition-all">
+                    Alterar Senha de Acesso
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="change-password-modal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div class="bg-darkCard border border-darkBorder rounded-2xl p-6 max-w-md w-full relative space-y-4">
+        <div class="flex items-center justify-between">
+            <h3 class="text-base font-bold text-white flex items-center gap-2">
+                <i data-lucide="key-round" class="text-brand-500 w-5 h-5"></i> Modificar Senha
+            </h3>
+            <button onclick="closeChangePasswordModal()" class="text-zinc-500 hover:text-zinc-300 transition-all">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+        <form action="/alterar-senha" method="POST" class="space-y-4 text-xs">
+            <div class="space-y-1.5">
+                <label class="text-zinc-400 font-semibold uppercase tracking-wider">Confirme seu Código (#)</label>
+                <input type="text" name="codigo_confirmacao" required placeholder="Ex: 12345"
+                    class="w-full px-4 py-3 bg-zinc-950 border border-darkBorder rounded-xl text-zinc-300 placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-brand-500 transition-all">
+            </div>
+            <div class="space-y-1.5">
+                <label class="text-zinc-400 font-semibold uppercase tracking-wider">Senha Atual</label>
+                <input type="password" name="senha_atual" required placeholder="••••••••"
+                    class="w-full px-4 py-3 bg-zinc-950 border border-darkBorder rounded-xl text-zinc-300 placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-brand-500 transition-all">
+            </div>
+            <div class="space-y-1.5">
+                <label class="text-zinc-400 font-semibold uppercase tracking-wider">Nova Senha</label>
+                <input type="password" name="senha_nova" required placeholder="Mínimo 6 caracteres"
+                    class="w-full px-4 py-3 bg-zinc-950 border border-darkBorder rounded-xl text-zinc-300 placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-brand-500 transition-all">
+            </div>
+            <div class="pt-2 flex gap-2">
+                <button type="button" onclick="returnToProfileModal()" class="w-1/3 bg-zinc-950 hover:bg-zinc-900 text-zinc-400 border border-darkBorder font-bold py-3 rounded-xl transition-all">
+                    Voltar
+                </button>
+                <button type="submit" class="w-2/3 bg-brand-600 hover:bg-brand-500 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-brand-600/20">
+                    Confirmar Nova Senha
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openEditProfileModal() {
+        document.getElementById('edit-profile-modal').classList.remove('hidden');
+    }
+
+    function closeEditProfileModal() {
+        document.getElementById('edit-profile-modal').classList.add('hidden');
+    }
+
+    function switchToPasswordModal() {
+        closeEditProfileModal();
+        document.getElementById('change-password-modal').classList.remove('hidden');
+    }
+
+    function closeChangePasswordModal() {
+        document.getElementById('change-password-modal').classList.add('hidden');
+    }
+
+    function returnToProfileModal() {
+        closeChangePasswordModal();
+        openEditProfileModal();
+    }
+
+    function alternarModoBio(editar) {
+        const blocoVer = document.getElementById('bloco-bio-ver');
+        const blocoEditar = document.getElementById('bloco-bio-editar');
+
+        if (editar) {
+            blocoVer.classList.add('hidden');
+            blocoEditar.classList.remove('hidden');
+        } else {
+            blocoVer.classList.remove('hidden');
+            blocoEditar.classList.add('hidden');
+        }
+    }
+
+    // Exibe o nome do arquivo selecionado dinamicamente abaixo da linha
+    function exibirNomeArquivo(input) {
+        const preview = document.getElementById('file-name-preview');
+        if (input.files && input.files[0]) {
+            preview.textContent = "Arquivo selecionado: " + input.files[0].name;
+            preview.classList.remove('hidden');
+        } else {
+            preview.classList.add('hidden');
+        }
+    }
+</script>
+{% endblock %}

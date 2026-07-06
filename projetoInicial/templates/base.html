@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="pt-PT" class="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FILMASSO - {% block title %}Rede Social de Filmes{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: { 50: '#f5f3ff', 100: '#ede9fe', 500: '#8b5cf6', 600: '#7c3aed', 700: '#6d28d9', 900: '#4c1d95' },
+                        darkBg: '#09090b', darkCard: '#18181b', darkBorder: '#27272a'
+                    }
+                }
+            }
+        }
+    </script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #09090b;
+            color: #f4f4f5;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #09090b;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #27272a;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #3f3f46;
+        }
+    </style>
+</head>
+
+<body class="min-h-screen flex flex-col antialiased">
+    <div id="app" class="flex flex-col min-h-screen">
+
+        <header class="sticky top-0 z-40 w-full border-b border-darkBorder bg-darkBg/85 backdrop-blur">
+            <div class="container mx-auto px-4 h-16 flex items-center justify-between">
+                <a href="/" class="flex items-center gap-2 cursor-pointer">
+                    <div
+                        class="bg-brand-600 p-2 rounded-lg text-white font-black tracking-wider flex items-center justify-center">
+                        <i data-lucide="clapperboard" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <span
+                            class="font-extrabold text-xl tracking-tight bg-gradient-to-r from-brand-500 to-purple-400 bg-clip-text text-transparent">FILMASSO</span>
+                        <span class="text-[10px] block text-zinc-500 font-medium tracking-widest -mt-1">COMUNICADORA DE
+                            FILMES</span>
+                    </div>
+                </a>
+
+                <div class="flex items-center gap-4">
+                    <div id="nav-auth-state" class="flex items-center gap-3">
+                        {% if not session.get('user') %}
+                        <button onclick="openAuthModal('login')"
+                            class="text-xs font-semibold bg-brand-600 hover:bg-brand-500 text-white px-4 py-2 rounded-xl transition-all">Iniciar
+                            Sessão</button>
+                        <button
+                            class="text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-4 py-2 rounded-xl transition-all"
+                            onclick="window.location.href='/cadastrar'">Criar conta</button>
+                        {% else %}
+                        <div class="flex items-center gap-3">
+                            <a href="/perfil"
+                                class="flex items-center gap-2.5 bg-zinc-900 hover:bg-zinc-800/80 border border-darkBorder hover:border-zinc-700 px-3 py-1.5 rounded-xl transition-all group">
+<img class="w-8 h-8 rounded-lg object-cover ring-2 ring-brand-500/20 group-hover:ring-brand-500/50 transition-all"
+    src="{{ session['user']['foto'] if session['user'].get('foto') else session['user']['avatar'] }}" alt="Avatar de {{ session['user']['name'] }}">
+
+                                <div class="text-left hidden sm:block">
+                                    <span
+                                        class="text-xs font-bold block text-zinc-200 group-hover:text-white transition-all leading-none">
+                                        {{ session['user']['name'] }}
+                                    </span>
+                                    <span
+                                        class="text-[9px] text-zinc-500 block mt-0.5 uppercase tracking-wider font-semibold">
+                                        Ver Perfil
+                                    </span>
+                                </div>
+                                <i data-lucide="chevron-right"
+                                    class="w-3.5 h-3.5 text-zinc-500 group-hover:text-zinc-300 transition-all ml-1"></i>
+                            </a>
+
+                            <div class="h-6 w-[1px] bg-darkBorder"></div>
+
+                            <a href="/logout"
+                                class="p-2 text-zinc-500 hover:text-red-400 bg-zinc-900/50 hover:bg-zinc-900 border border-darkBorder rounded-xl transition-all"
+                                title="Sair da Conta">
+                                <i data-lucide="log-out" class="w-4 h-4"></i>
+                            </a>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main class="flex-1 container mx-auto px-4 py-6 max-w-7xl">
+            <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+
+                <aside class="hidden lg:block space-y-6">
+                    <div class="bg-darkCard border border-darkBorder rounded-2xl p-4">
+                        {% if not session.get('user') %}
+                        <div class="text-center py-4 space-y-2">
+                            <p class="text-xs text-zinc-500">Faça login para interagir e ganhar XP!</p>
+                        </div>
+                        {% else %}
+                        <div class="flex items-center gap-3 mb-2">
+<img class="w-12 h-12 rounded-xl object-cover ring-2 ring-brand-500"
+    src="{{ session['user']['foto'] if session['user'].get('foto') else session['user']['avatar'] }}">
+                            <div>
+                                <h3 class="font-bold text-sm text-zinc-100">{{ session['user']['name'] }}</h3>
+                                <p class="text-[10px] text-zinc-500 uppercase font-mono">{% if
+                                    session['user']['isAdmin'] %}ADMINISTRADOR{% else %}EXPLORADOR{% endif %}</p>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <nav class="bg-darkCard border border-darkBorder rounded-2xl p-3 space-y-1">
+                        <a href="/logado"
+                            class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-zinc-300 hover:bg-zinc-800/50 transition-all">
+                            <i data-lucide="layout-grid" class="w-5 h-5 text-brand-500"></i> Feed Novidades
+                        </a>
+
+                        {% if session.get('user') and session['user'].get('departamento') == 'admin' %}
+                        <a href="/database"
+                            class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-zinc-300 hover:bg-zinc-800/50 transition-all">
+                            <i data-lucide="database" class="w-5 h-5 text-brand-500"></i> Database
+                        </a>
+                        {% endif %}
+
+                        {% if session.get('user') and session['user']['isAdmin'] %}
+                        <a href="/wiki"
+                            class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-zinc-300 hover:bg-zinc-800/50 transition-all">
+                            <i data-lucide="book-open" class="w-5 h-5 text-brand-500"></i> Wiki Database
+                        </a>
+                        <a href="/admin"
+                            class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-zinc-300 hover:bg-zinc-800/50 transition-all">
+                            <i data-lucide="shield-check" class="w-5 h-5 text-amber-500"></i> Painel Admin
+                        </a>
+                        {% endif %}
+                    </nav>
+                </aside>
+
+                <section class="col-span-1 lg:col-span-3 space-y-6">
+                    {% block content %}{% endblock %}
+                </section>
+
+            </div>
+        </main>
+
+        <footer class="mt-auto border-t border-darkBorder bg-darkBg py-6 text-center text-xs text-zinc-500">
+            <p>&copy; 2026 FILMASSO. Todos os direitos reservados.</p>
+        </footer>
+    </div>
+
+    <div id="modal-overlay"
+        class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden"
+        onclick="closeModal()">
+        <div class="bg-zinc-900 border border-darkBorder w-full max-w-lg rounded-2xl shadow-2">
+        </div>
+    </div>
+
+    <script>
+        // Inicializa os ícones do Lucide após o carregamento da página
+        lucide.createIcons();
+    </script>
+</body>
+
+</html>
+
+<div id="modal-overlay"
+    class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden"
+    onclick="closeModal()">
+    <div class="bg-zinc-900 border border-darkBorder w-full max-w-lg rounded-2xl shadow-2

@@ -1,0 +1,94 @@
+{% extends 'base.html' %}
+
+{% block title %}Início - Visitante{% endblock %}
+
+{% block content %}
+
+<div id="login-modal"
+    class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-zinc-900 border border-darkBorder w-full max-w-md rounded-2xl shadow-2xl overflow-hidden relative">
+
+        <div class="p-6 border-b border-darkBorder flex items-center justify-between">
+            <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                <i data-lucide="log-in" class="text-brand-500 w-5 h-5"></i> Iniciar Sessão
+            </h3>
+            <button onclick="closeAuthModal()" class="text-zinc-500 hover:text-zinc-300 transition-all">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <form action="/autenticar" method="POST" class="p-6 space-y-4">
+
+            <div>
+                <label class="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">Usuário ou
+                    E-mail</label>
+                <input type="text" name="codigoUsuario" placeholder="Seu usuário..."
+                    class="w-full px-4 py-3 bg-zinc-950 border border-darkBorder rounded-xl text-sm text-zinc-200 focus:outline-none focus:ring-1 focus:ring-brand-500">
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">Senha</label>
+                <input type="password" name="senhaUsuario" placeholder="Sua senha..."
+                    class="w-full px-4 py-3 bg-zinc-950 border border-darkBorder rounded-xl text-sm text-zinc-200 focus:outline-none focus:ring-1 focus:ring-brand-500">
+            </div>
+            <div class="pt-2">
+                <button type="submit"
+                    class="w-full bg-brand-600 hover:bg-brand-500 text-white font-bold text-sm py-3 rounded-xl transition-all shadow-lg shadow-brand-600/20">
+                    Entrar no Site
+                </button>
+            </div>
+            {% if mensagem %}
+            <p style="color: red;">{{ mensagem }}</p>
+            {% endif %}
+        </form>
+    </div>
+</div>
+
+<div class="space-y-6">
+    <div class="bg-darkCard border border-darkBorder rounded-2xl p-5 space-y-4">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-zinc-700"></div>
+                <div>
+                    <h4 class="text-sm font-bold text-zinc-200">Usuário Demonstrativo</h4>
+                    <span class="text-[11px] text-zinc-500">Postado recentemente</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="w-full h-48 bg-zinc-800 rounded-xl flex items-center justify-center border border-darkBorder">
+            <span class="text-zinc-500 text-xs">Imagem de Demonstração do Filme</span>
+        </div>
+
+        <div class="flex items-center gap-4 pt-2 border-t border-darkBorder text-xs">
+            <button onclick="requireAuth()"
+                class="flex items-center gap-1.5 text-zinc-400 hover:text-white transition-all font-semibold">
+                <i data-lucide="heart" class="w-4 h-4"></i> 0 Curtidas
+            </button>
+        </div>
+
+        <div class="space-y-3 pt-3 border-t border-zinc-800">
+            <div class="flex gap-2 pt-1">
+                <input type="text" readonly onclick="requireAuth()"
+                    placeholder="Escreva um comentário (Clique para Logar)..."
+                    class="flex-1 px-3 py-2 bg-zinc-950 border border-darkBorder rounded-xl text-xs text-zinc-500 cursor-pointer focus:outline-none">
+                <button onclick="requireAuth()"
+                    class="bg-zinc-800 text-zinc-400 px-4 py-2 rounded-xl text-xs font-bold transition-all">Enviar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Função para abrir o pop-up de Login
+        function openAuthModal(type) {
+            // Você pode usar o parâmetro 'type' caso queira diferenciar Login de Cadastro no futuro
+            document.getElementById('login-modal').classList.remove('hidden');
+        }
+
+        // Função para fechar o pop-up de Login
+        function closeAuthModal() {
+            document.getElementById('login-modal').classList.add('hidden');
+        }
+    </script>
+</div>
+{% endblock %}

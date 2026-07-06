@@ -1,0 +1,133 @@
+/* Reset */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: "Segoe UI", Arial, sans-serif;
+}
+
+body {
+  height: 100vh;
+  display: flex;
+  flex-direction: column; /* 👈 ISSO AQUI */
+  justify-content: center;
+  align-items: center;
+  background: linear-gradient(135deg, #6a727e, #6a727e);
+}
+
+td {
+  padding-right: 20px;
+}
+
+.mensagem-principal {
+  font-size: 37px;
+  margin-bottom: 10px;
+}
+
+/* Container */
+
+a {
+  text-decoration: none;
+  color: white;
+}
+
+
+.container-lista {
+  background: #fff;
+  padding: 30px 25px;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 100%;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+.container-2 {
+  background: #fff;
+  justify-items: flex;
+  flex-direction: row;
+  padding: 30px 25px;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 62%;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+.container {
+  background: #fff;
+  justify-items: flex;
+  flex-direction: row;
+  padding: 30px 25px;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 350px;
+  margin-top: 200px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+form {
+  background: #fff;
+  padding: 30px 25px;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 350px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+/* Título */
+h1 {
+  position: absolute;
+  top: 60px;
+  color: white;
+  font-size: 50px;
+}
+
+/* Labels */
+label {
+  display: block;
+  margin-bottom: 6px;
+  margin-top: 15px;
+  font-size: 14px;
+  color: #444;
+}
+
+/* Inputs */
+input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  outline: none;
+  transition: 0.3s;
+}
+
+/* Foco */
+input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+/* Botão */
+button {
+  width: 100%;
+  margin-top: 20px;
+  padding: 12px;
+  border: none;
+  border-radius: 8px;
+  background: #3b82f6;
+  color: white;
+  font-size: 15px;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+/* Hover botão */
+button:hover {
+  background: #2563eb;
+}
+
+/* Mensagem */
+p {
+  margin-top: 15px;
+  text-align: center;
+  color: #fff;
+}

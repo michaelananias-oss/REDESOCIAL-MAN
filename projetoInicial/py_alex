@@ -1,0 +1,199 @@
+from flask import Flask, render_template, request, session, redirect, url_for
+from functools import wraps
+
+app = Flask(__name__)
+
+app.secret_key = "chave_secreta"
+
+funcionarios = []
+
+def verificar(func):
+    @wraps(func)
+    def verificarLogado(*args, **kwargs):
+        if "usuario" not in session:
+            return redirect(url_for("home"))
+        
+        return func(*args, **kwargs)
+    
+    return verificarLogado
+
+@app.route('/')
+def home():
+    
+    funcionario = {
+        "codigo": "001",
+        "nome": "Kayque",
+        "salario": 1000,
+        "idade": 19,
+        "departamento": "admin",
+        "senha": "123"
+    }
+
+    if not funcionarios:
+        funcionarios.append(funcionario)
+    return render_template("principal.html")
+
+@app.route("/autenticar", methods=['POST'])
+def autenticarUsuario():
+
+    codigo = request.form.get("codigoUsuario")
+    senha = request.form.get("senhaUsuario")
+
+    funcionario = buscarFuncionario(codigo)
+    if funcionario is None:
+        msg = "Funcionário não encontrado"
+        return render_template("principal.html", mensagem=msg)
+    
+    if funcionario["senha"] == senha:
+        session["usuario"] = funcionario["nome"]
+        session["departamento"] = funcionario["departamento"]
+        return redirect(url_for("rotaLogado"))
+    else:
+        msg = "login ou senha incorretos, tente novamente"
+        return render_template("principal.html", mensagem=msg)
+
+@app.route('/logado')
+def rotaLogado():
+	return render_template("logado.html")
+
+@app.route("/logout")
+def rotaLogout():
+
+    session.clear()
+
+    return redirect(url_for("home"))
+
+@app.route("/gerenciamento")
+def rotaGerenciamento():
+    if "usuario" not in session:
+        return redirect(url_for("home"))
+
+    if session["departamento"] != "admin":
+        msg = "Acesso negado. "
+        return render_template("logado.html", mensagem=msg)
+
+    return render_template("gerenciamento.html")
+
+#modificado
+@app.route("/pessoal")
+@verificar
+def rotaPessoal():
+    return render_template("pessoal.html")
+
+
+
+
+@app.route('/salario')
+def rotaSalario():
+	return render_template("salario.html")
+
+@app.route('/senha')
+def rotaSenha():
+	return render_template("senha.html")
+
+@app.route("/funcionario")
+def rotaFuncionario():
+    return render_template("cadastro.html")
+
+@app.route("/listar")
+def rotaListar():
+    return render_template("listar.html", lista=funcionarios) 
+
+@app.route("/listar2")
+def rotaListar2():
+    mensagem = ""
+    for f in funcionarios:
+        mensagem += f"""
+            <tr>
+            <td>{f['nome']}</td>
+            <td>{f['salario']:.2f}</td>
+            <td>{f['idade']}</td>
+            <td>{f['departamento']}</td>
+            </tr> <br>
+        """
+    return render_template("listar2.html", mensagem=mensagem)
+
+
+@app.route("/calcularSalario", methods=['POST'])
+def calcularSalario():
+    codigo = request.form.get("codigo")
+    horasExtras = float(request.form.get("horasExtras") or 0)
+    adiantamento13 = request.form.get("adiantamento13")
+    ferias = request.form.get("ferias")
+
+    funcionario = buscarFuncionario(codigo)
+    if funcionario is None:
+        msg = "Funcionário não encontrado"
+        return render_template("salario.html", mensagem=msg)
+
+    salario = funcionario["salario"]
+
+    salario_final = salario + horasExtras * 50
+
+    if adiantamento13:
+        salario_final += salario / 2
+
+    if ferias:
+        salario_final += salario / 3
+
+    msg = f"Salário Simulado: R$ {salario_final:.2f}"
+    return render_template("salario.html", mensagem=msg)
+
+
+@app.route("/alterarSenha", methods=['POST'])
+def alterarSenha():
+
+    codigo = request.form.get("codigo")
+    senhaAtual = request.form.get("senhaAtual")
+    senhaNova = request.form.get("senhaNova")
+
+    funcionario = buscarFuncionario(codigo)
+    if funcionario is None:
+        msg = "Funcionário não encontrado"
+        return render_template("senha.html", mensagem=msg)
+
+    if funcionario["senha"] != senhaAtual:
+        msg = "Senha atual incorreta."
+        return render_template("senha.html", mensagem=msg)
+    
+    funcionario["senha"] = senhaNova
+    msg = "Senha alterada com sucesso."
+    return render_template("senha.html", mensagem=msg)
+
+
+@app.route("/cadastrar", methods=['POST'])
+def cadastrarFuncionario():
+
+    codigo = request.form.get("codigo")
+    nome = request.form.get("nome")
+    salario = float(request.form.get("salario"))
+    idade = int(request.form.get("idade"))
+    departamento = request.form.get("departamento")
+    senha = request.form.get("senha")
+
+    funcionario = {
+        "codigo": codigo,
+        "nome": nome,
+        "salario": salario,
+        "idade": idade,
+        "departamento": departamento,
+        "senha": senha
+    }
+
+    funcionarios.append(funcionario)
+    mensagem = f"Usuário {funcionario['nome']} adicionado com sucesso."
+
+    return render_template("cadastro.html", mensagem=mensagem)
+
+
+def buscarFuncionario(codigo):
+
+    for f in funcionarios:
+        if f["codigo"] == codigo:
+            return f
+    
+    return None
+
+
+if __name__ == '__main__':
+	app.run(debug=True)

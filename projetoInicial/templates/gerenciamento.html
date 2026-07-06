@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gerenciamento</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+  <h1 class="mensagem-principal">Gerenciamento de Funcionários</h1>
+
+  <div class="container">
+
+    <button><a href="/cadastrar">Cadastrar Funcionário</a></button>
+
+    <button><a href="/listar">Listar Todos Funcionários</a></button>
+
+    <button><a href="/estatistica">Estatísticas dos Funcionários</a></button>
+    
+    <button><a href="/logado">Voltar ao Menu Principal</a></button>
+  </div>
+</body>
+</html>
