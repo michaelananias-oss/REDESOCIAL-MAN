@@ -504,13 +504,33 @@ def curtirPostagem(id_postagem, usuario_codigo):
         # Se não curtiu: registra o voto e adiciona 1 ao contador
         cursor.execute('INSERT INTO curtidas (postagem_id, usuario_codigo) VALUES (?, ?)', (id_postagem, usuario_codigo))
         cursor.execute('UPDATE postagens SET curtidas = curtidas + 1 WHERE id = ?', (id_postagem,))
+        curtiu_agora = True
     else:
         # Se já curtiu: remove o registro e retira o voto (Descurtir)
         cursor.execute('DELETE FROM curtidas WHERE postagem_id = ? AND usuario_codigo = ?', (id_postagem, usuario_codigo))
         cursor.execute('UPDATE postagens SET curtidas = MAX(0, curtidas - 1) WHERE id = ?', (id_postagem,))
+        curtiu_agora = False
         
     conexao.commit()
+
+    # Recupera o total atualizado de curtidas para devolver ao front-end
+    cursor.execute('SELECT curtidas FROM postagens WHERE id = ?', (id_postagem,))
+    linha = cursor.fetchone()
+    total_curtidas = linha[0] if linha else 0
+
     conexao.close()
+
+    return {"curtiu": curtiu_agora, "total": total_curtidas}
+
+def listarCurtidasIds(usuario_codigo):
+    """ Retorna a lista (em string) dos IDs de postagens que o usuário específico já curtiu.
+        Usado para exibir o coração aceso apenas para quem realmente curtiu cada postagem. """
+    conexao = sqlite.connect('database.sqlite')
+    cursor = conexao.cursor()
+    cursor.execute('SELECT postagem_id FROM curtidas WHERE usuario_codigo = ?', (str(usuario_codigo),))
+    dados = [str(row[0]) for row in cursor.fetchall()]
+    conexao.close()
+    return dados
 
 def inserirComentario(postagem_id, usuario_codigo, usuario_nome, conteudo):
     conexao = sqlite.connect('database.sqlite')
@@ -522,6 +542,214 @@ def inserirComentario(postagem_id, usuario_codigo, usuario_nome, conteudo):
     conexao.commit()
     conexao.close()
 
+def buscarComentario(id_comentario):
+    """ Busca um comentário específico pelo ID """
+    conexao = sqlite.connect('database.sqlite')
+    conexao.row_factory = sqlite.Row
+    cursor = conexao.cursor()
+    cursor.execute('SELECT * FROM comentarios WHERE id = ?', (id_comentario,))
+    dado = cursor.fetchone()
+    conexao.close()
+    return dado
+
+def editarComentario(id_comentario, usuario_codigo, novo_conteudo):
+    """ Edita o conteúdo de um comentário. Apenas o próprio dono pode editar (admin não pode editar
+        comentário alheio, apenas excluir). A data do comentário é substituída pela data da edição
+        e a flag 'editado' é ativada para exibirmos 'editado (data)' no lugar da data original. """
+    conexao = sqlite.connect('database.sqlite')
+    cursor = conexao.cursor()
+    cursor.execute('''
+        UPDATE comentarios 
+        SET conteudo = ?, data_comentario = CURRENT_TIMESTAMP, editado = 1
+        WHERE id = ? AND usuario_codigo = ?
+    ''', (novo_conteudo, id_comentario, str(usuario_codigo)))
+    conexao.commit()
+    sucesso = cursor.rowcount > 0
+    conexao.close()
+    return sucesso
+
+def excluirComentario(id_comentario, usuario_codigo, is_admin):
+    """ Exclui um comentário do site e do banco de dados. O dono pode excluir o seu próprio
+        comentário e o admin pode excluir qualquer comentário. """
+    conexao = sqlite.connect('database.sqlite')
+    cursor = conexao.cursor()
+    if is_admin:
+        cursor.execute('DELETE FROM comentarios WHERE id = ?', (id_comentario,))
+    else:
+        cursor.execute('DELETE FROM comentarios WHERE id = ? AND usuario_codigo = ?',
+                       (id_comentario, str(usuario_codigo)))
+    conexao.commit()
+    sucesso = cursor.rowcount > 0
+    conexao.close()
+    return sucesso
+
+def inicializar_colunas_comentarios():
+    """ Garante que a coluna 'editado' exista na tabela de comentários,
+        mesmo que a tabela já tenha sido criada anteriormente. """
+    conexao = sqlite.connect('database.sqlite')
+    cursor = conexao.cursor()
+    try:
+        cursor.execute("ALTER TABLE comentarios ADD COLUMN editado INTEGER DEFAULT 0;")
+        conexao.commit()
+    except sqlite.OperationalError:
+        pass
+    conexao.close()
+
+
+# =====================================================================
+# --- NOVIDADE: SISTEMA DE SEGUIDORES E NOTIFICAÇÕES ---
+# =====================================================================
+
+def criarTabelaSeguidoresENotificacoes():
+    """ Cria a tabela de seguidores (quem segue quem) e a tabela de notificações """
+    conexao = sqlite.connect('database.sqlite')
+    cursor = conexao.cursor()
+
+    # Tabela de Seguidores: ID do usuário, ID do usuário que ele segue, data que começou a seguir
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS seguidores(
+            usuario_id TEXT NOT NULL,
+            seguido_id TEXT NOT NULL,
+            data_inicio TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (usuario_id, seguido_id)
+        )
+    ''')
+
+    # Tabela de Notificações
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS notificacoes(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            usuario_id TEXT NOT NULL,
+            autor_codigo TEXT NOT NULL,
+            mensagem TEXT NOT NULL,
+            lida INTEGER DEFAULT 0,
+            data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
+    conexao.commit()
+    conexao.close()
+
+def toggleSeguir(usuario_codigo, seguido_id):
+    """ Segue ou deixa de seguir (alterna o estado) um usuário """
+    conexao = sqlite.connect('database.sqlite')
+    cursor = conexao.cursor()
+
+    cursor.execute('SELECT 1 FROM seguidores WHERE usuario_id = ? AND seguido_id = ?',
+                   (str(usuario_codigo), str(seguido_id)))
+    ja_segue = cursor.fetchone()
+
+    if ja_segue:
+        cursor.execute('DELETE FROM seguidores WHERE usuario_id = ? AND seguido_id = ?',
+                       (str(usuario_codigo), str(seguido_id)))
+        seguindo_agora = False
+    else:
+        cursor.execute('INSERT INTO seguidores (usuario_id, seguido_id) VALUES (?, ?)',
+                       (str(usuario_codigo), str(seguido_id)))
+        seguindo_agora = True
+
+    conexao.commit()
+    conexao.close()
+    return seguindo_agora
+
+def verificarSeSegue(usuario_codigo, seguido_id):
+    """ Verifica se usuario_codigo já segue seguido_id """
+    conexao = sqlite.connect('database.sqlite')
+    cursor = conexao.cursor()
+    cursor.execute('SELECT 1 FROM seguidores WHERE usuario_id = ? AND seguido_id = ?',
+                   (str(usuario_codigo), str(seguido_id)))
+    resultado = cursor.fetchone()
+    conexao.close()
+    return True if resultado else False
+
+def listarSeguindoIds(usuario_codigo):
+    """ Retorna a lista de códigos (texto) de todos que o usuário segue """
+    conexao = sqlite.connect('database.sqlite')
+    cursor = conexao.cursor()
+    cursor.execute('SELECT seguido_id FROM seguidores WHERE usuario_id = ?', (str(usuario_codigo),))
+    dados = [str(row[0]) for row in cursor.fetchall()]
+    conexao.close()
+    return dados
+
+def contarSeguidores(usuario_codigo):
+    """ Conta quantas pessoas seguem este usuário """
+    conexao = sqlite.connect('database.sqlite')
+    cursor = conexao.cursor()
+    cursor.execute('SELECT COUNT(*) FROM seguidores WHERE seguido_id = ?', (str(usuario_codigo),))
+    total = cursor.fetchone()[0]
+    conexao.close()
+    return total
+
+def contarSeguindo(usuario_codigo):
+    """ Conta quantas pessoas este usuário segue """
+    conexao = sqlite.connect('database.sqlite')
+    cursor = conexao.cursor()
+    cursor.execute('SELECT COUNT(*) FROM seguidores WHERE usuario_id = ?', (str(usuario_codigo),))
+    total = cursor.fetchone()[0]
+    conexao.close()
+    return total
+
+def contarPosts(usuario_codigo):
+    """ Conta quantas postagens o usuário já fez """
+    conexao = sqlite.connect('database.sqlite')
+    cursor = conexao.cursor()
+    cursor.execute('SELECT COUNT(*) FROM postagens WHERE usuario_codigo = ?', (str(usuario_codigo),))
+    total = cursor.fetchone()[0]
+    conexao.close()
+    return total
+
+def criarNotificacoesParaSeguidores(usuario_codigo, usuario_nome):
+    """ Sempre que o usuário publica algo novo, gera uma notificação para cada um de seus seguidores """
+    conexao = sqlite.connect('database.sqlite')
+    cursor = conexao.cursor()
+
+    cursor.execute('SELECT usuario_id FROM seguidores WHERE seguido_id = ?', (str(usuario_codigo),))
+    seguidores = cursor.fetchall()
+
+    mensagem = f"{usuario_nome} fez uma nova publicação"
+
+    for (seguidor_id,) in seguidores:
+        cursor.execute('''
+            INSERT INTO notificacoes (usuario_id, autor_codigo, mensagem)
+            VALUES (?, ?, ?)
+        ''', (seguidor_id, str(usuario_codigo), mensagem))
+
+    conexao.commit()
+    conexao.close()
+
+def listarNotificacoes(usuario_codigo):
+    """ Retorna as notificações não lidas mais recentes de um usuário """
+    conexao = sqlite.connect('database.sqlite')
+    conexao.row_factory = sqlite.Row
+    cursor = conexao.cursor()
+    cursor.execute('''
+        SELECT * FROM notificacoes
+        WHERE usuario_id = ? AND lida = 0
+        ORDER BY data_criacao DESC
+    ''', (str(usuario_codigo),))
+    dados = cursor.fetchall()
+    conexao.close()
+    return dados
+
+def buscarNotificacao(id_notificacao):
+    """ Busca uma notificação específica pelo ID """
+    conexao = sqlite.connect('database.sqlite')
+    conexao.row_factory = sqlite.Row
+    cursor = conexao.cursor()
+    cursor.execute('SELECT * FROM notificacoes WHERE id = ?', (id_notificacao,))
+    dado = cursor.fetchone()
+    conexao.close()
+    return dado
+
+def marcarNotificacaoLida(id_notificacao):
+    """ Marca uma notificação como lida """
+    conexao = sqlite.connect('database.sqlite')
+    cursor = conexao.cursor()
+    cursor.execute('UPDATE notificacoes SET lida = 1 WHERE id = ?', (id_notificacao,))
+    conexao.commit()
+    conexao.close()
+
 
 criarTabelasCinema()
 inicializar_novas_colunas()
+inicializar_colunas_comentarios()
