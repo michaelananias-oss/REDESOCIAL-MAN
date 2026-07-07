@@ -543,19 +543,22 @@ def atualizar_senha():
     else:
         return render_template('perfil.html', mensagem="Erro: Validação falhou! Código do usuário ou senha atual incorretos.")
 
-# @app.route("/remover/<codigo>")
-# @verificar_adm
-# def removerFuncionario(codigo):
-#     funcionario = buscarFuncionario(codigo)
+@app.route("/painel_admin")
+@verificar_adm
+def painel_admin():
+    return render_template("painel_admin.html")
 
-#     if funcionario is None:
-#         msg = "Funcionário não encontrado."
-#         return render_template("listar.html", lista=controlador_BD.listarFuncionario(), mensagem=msg)
+@app.route("/admin/usuarios")
+@verificar_adm
+def admin_usuarios():
+    usuarios = controlador_BD.listarUsuariosDetalhado()
+    return render_template("admin_usuarios.html", usuarios=usuarios)
 
-#     controlador_BD.removerFuncionario(codigo)
-#     msg = "Funcionário removido com sucesso."
-#     return render_template("listar.html", lista=controlador_BD.listarFuncionario(), mensagem=msg)
-
+@app.route("/admin/usuarios/excluir/<codigo>", methods=["POST", "GET"])
+@verificar_adm
+def excluir_usuario(codigo):
+    controlador_BD.removerUsuario(codigo)
+    return redirect(url_for("admin_usuarios"))
 
 def buscarFuncionario(codigo):
     if not codigo:
