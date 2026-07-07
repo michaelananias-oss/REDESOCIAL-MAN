@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, session, redirect, url_for
+from flask import Flask, render_template, request, session, redirect, url_for, jsonify
 from werkzeug.utils import secure_filename
 import os
 from functools import wraps
@@ -103,6 +103,7 @@ def autenticar():
 
 
 controlador_BD.criarTabelaPostagensEComentarios()
+controlador_BD.criarTabelaSeguidoresENotificacoes()
 
 @app.route("/logado")
 @verificar
@@ -148,6 +149,10 @@ def nova_postagem():
         filme_id, conteudo, imagem_final, 
         feito_por_ia, modelo_ia, prompt_ia
     )
+
+    # --- NOVIDADE: GERA NOTIFICAÇÕES PARA QUEM SEGUE ESSE USUÁRIO ---
+    controlador_BD.criarNotificacoesParaSeguidores(usuario_codigo, usuario_nome)
+
     return redirect(url_for('feed_logado'))
 
 @app.route("/logado/excluir/<int:id_postagem>", methods=["POST"])
@@ -181,8 +186,14 @@ def curtir_feed(id_postagem):
     usuario_codigo = session['user']['codigo']
     
     # Passa o ID da postagem e o código do usuário para controle único de curtidas
-    controlador_BD.curtirPostagem(id_postagem, usuario_codigo)
-    return redirect(url_for('feed_logado'))
+    resultado = controlador_BD.curtirPostagem(id_postagem, usuario_codigo)
+
+    # Se a requisição veio via JavaScript (fetch/AJAX), respondemos em JSON
+    # para que a página não precise recarregar nem perder a posição de rolagem.
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return jsonify(success=True, curtiu=resultado['curtiu'], total=resultado['total'])
+
+    return redirect(request.referrer or url_for('feed_logado'))
 
 @app.route("/logado/comentar/<int:id_postagem>", methods=["POST"])
 @verificar
@@ -194,7 +205,33 @@ def comentar_feed(id_postagem):
 
     if conteudo:
         controlador_BD.inserirComentario(id_postagem, usuario_codigo, usuario_nome, conteudo)
-    return redirect(url_for('feed_logado'))
+    return redirect(request.referrer or url_for('feed_logado'))
+
+@app.route("/logado/comentario/editar/<int:id_comentario>", methods=["POST"])
+@verificar
+def editar_comentario(id_comentario):
+    """ Permite que o autor do comentário edite seu próprio conteúdo.
+        Ao editar, a data de publicação é substituída pela data da edição
+        e o comentário passa a exibir 'editado (data)' no lugar da data original. """
+    usuario_codigo = session['user']['codigo']
+    novo_conteudo = (request.form.get('conteudo_comentario_editado') or '').strip()
+
+    if novo_conteudo:
+        controlador_BD.editarComentario(id_comentario, usuario_codigo, novo_conteudo)
+
+    return redirect(request.referrer or url_for('feed_logado'))
+
+@app.route("/logado/comentario/excluir/<int:id_comentario>", methods=["POST"])
+@verificar
+def excluir_comentario(id_comentario):
+    """ Remove o comentário do site e do banco de dados.
+        O próprio autor pode excluir seu comentário, e o admin pode excluir qualquer um. """
+    usuario_codigo = session['user']['codigo']
+    is_admin = session['user']['isAdmin']
+
+    controlador_BD.excluirComentario(id_comentario, usuario_codigo, is_admin)
+
+    return redirect(request.referrer or url_for('feed_logado'))
 
 @app.route('/logout')
 def logout():
@@ -202,14 +239,97 @@ def logout():
     return redirect('/')
 
 @app.route("/perfil")
+@app.route("/perfil/<string:usuario_codigo>")
 @verificar
-def rotaPerfil():
+def rotaPerfil(usuario_codigo=None):
 
+    meu_codigo = session['user']['codigo']
+
+    if usuario_codigo is None or str(usuario_codigo) == str(meu_codigo):
+        codigo_alvo = meu_codigo
+        eh_meu_perfil = True
+    else:
+        codigo_alvo = usuario_codigo
+        eh_meu_perfil = False
+
+    usuario_banco = controlador_BD.buscarFuncionario(codigo_alvo)
+
+    if not usuario_banco:
+        return redirect(url_for('rotaPerfil'))
+
+    # Dicionário do usuário dono do perfil que está sendo exibido no momento
+    perfil_user = {
+        'name': usuario_banco['nome'],
+        'codigo': usuario_banco['codigo'],
+        'departamento': usuario_banco['departamento'],
+        'isAdmin': True if usuario_banco['departamento'].lower() == 'admin' else False,
+        'genero': usuario_banco['genero'] if ('genero' in usuario_banco.keys() and usuario_banco['genero']) else None,
+        'biografia': usuario_banco['biografia'] if ('biografia' in usuario_banco.keys() and usuario_banco['biografia']) else "",
+        'avatar': usuario_banco['foto'] if ('foto' in usuario_banco.keys() and usuario_banco['foto']) else f"https://ui-avatars.com/api/?name={usuario_banco['nome']}&background=8b5cf6&color=fff&rounded=true"
+    }
+
+    postagens_usuario = controlador_BD.listarPostagensPorUsuario(codigo_alvo)
+
+    # Métricas calculadas em tempo real com base no banco de dados
+    total_posts = controlador_BD.contarPosts(codigo_alvo)
+    total_seguidores = controlador_BD.contarSeguidores(codigo_alvo)
+    total_seguindo = controlador_BD.contarSeguindo(codigo_alvo)
+
+    ja_segue = controlador_BD.verificarSeSegue(meu_codigo, codigo_alvo)
+
+    return render_template(
+        "perfil.html",
+        postagens=postagens_usuario,
+        perfil_user=perfil_user,
+        eh_meu_perfil=eh_meu_perfil,
+        total_posts=total_posts,
+        total_seguidores=total_seguidores,
+        total_seguindo=total_seguindo,
+        ja_segue=ja_segue
+    )
+
+# =====================================================================
+# --- NOVIDADE: SEGUIR USUÁRIOS E NOTIFICAÇÕES ---
+# =====================================================================
+
+@app.route("/seguir/<string:seguido_id>", methods=["POST"])
+@verificar
+def seguir_usuario(seguido_id):
     usuario_codigo = session['user']['codigo']
+    seguindo_agora = None
 
-    minhas_postagens = controlador_BD.listarPostagensPorUsuario(usuario_codigo)
+    if str(usuario_codigo) != str(seguido_id):
+        seguindo_agora = controlador_BD.toggleSeguir(usuario_codigo, seguido_id)
 
-    return render_template("perfil.html", postagens=minhas_postagens)
+    # Se a requisição veio via JavaScript (fetch/AJAX), respondemos em JSON
+    # para que a página não precise recarregar nem perder a posição de rolagem.
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return jsonify(success=True, seguindo=seguindo_agora)
+
+    return redirect(request.referrer or url_for('feed_logado'))
+
+@app.route("/notificacao/clicar/<int:id_notificacao>")
+@verificar
+def clicar_notificacao(id_notificacao):
+    notificacao = controlador_BD.buscarNotificacao(id_notificacao)
+    controlador_BD.marcarNotificacaoLida(id_notificacao)
+
+    if notificacao:
+        return redirect(url_for('rotaPerfil', usuario_codigo=notificacao['autor_codigo']))
+
+    return redirect(url_for('feed_logado'))
+
+@app.context_processor
+def inject_dados_sociais():
+    """ Disponibiliza as notificações e a lista de quem o usuário segue em qualquer template """
+    if "user" in session:
+        usuario_codigo = session['user']['codigo']
+        notificacoes = controlador_BD.listarNotificacoes(usuario_codigo)
+        lista_seguindo = controlador_BD.listarSeguindoIds(usuario_codigo)
+        lista_curtidas = controlador_BD.listarCurtidasIds(usuario_codigo)
+        return dict(notificacoes=notificacoes, lista_seguindo=lista_seguindo, lista_curtidas=lista_curtidas)
+    return dict(notificacoes=[], lista_seguindo=[], lista_curtidas=[])
+
 
 @app.route('/database')
 @verificar_adm  
@@ -225,12 +345,27 @@ def cadastrarFilme():
     data_lancamento = request.form.get('data_lancamento')
     sinopse = request.form.get('sinopse')
     estudio_id = request.form.get('estudio_id')
-    imagem = request.form.get('imagem_arquivo')
-    
+
+    # Tratamento de Imagens Unificado (Arquivo local ou URL externa),
+    # igual ao que já é feito na edição de filme.
+    imagem_url = request.form.get('imagem_url', '').strip()
+    caminho_foto = None
+
+    if 'imagem_arquivo' in request.files:
+        file = request.files['imagem_arquivo']
+        if file and file.filename != '':
+            filename = secure_filename(f"filme_{file.filename}")
+            caminho_salvar = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(caminho_salvar)
+            caminho_foto = f"/{app.config['UPLOAD_FOLDER']}/{filename}"
+
+    if not caminho_foto and imagem_url:
+        caminho_foto = imagem_url
+
     if not titulo or not data_lancamento:
         return redirect(url_for('rotaDatabase'))
         
-    controlador_BD.inserirFilme(titulo, data_lancamento, sinopse, estudio_id, imagem)
+    controlador_BD.inserirFilme(titulo, data_lancamento, sinopse, estudio_id, caminho_foto)
     return redirect(url_for('rotaDatabase'))
 
 @app.route('/database/novo_estudio', methods=['POST'])
@@ -320,15 +455,16 @@ def atualizar_perfil():
     avatar_file = request.files.get('avatar')
     
     avatar_final = session['user']['avatar']
-    
-    if avatar_url and avatar_url.strip():
-        avatar_final = avatar_url.strip()
-        
+
+    # O upload de arquivo tem prioridade sobre a URL: se um arquivo for enviado, ele é
+    # usado; caso contrário, se uma URL for informada, ela é usada; senão mantém a atual.
     if avatar_file and avatar_file.filename != '':
         nome_arquivo = secure_filename(avatar_file.filename)
-        caminho = os.path.join('static/uploads', nome_arquivo)
+        caminho = os.path.join(app.config['UPLOAD_FOLDER'], nome_arquivo)
         avatar_file.save(caminho)
-        avatar_final = '/' + caminho 
+        avatar_final = '/' + caminho
+    elif avatar_url and avatar_url.strip():
+        avatar_final = avatar_url.strip()
         
     # --- NOVIDADE: RECUPERANDO DADOS E SALVANDO NO BANCO ---
     codigo_usuario = session['user']['codigo']
