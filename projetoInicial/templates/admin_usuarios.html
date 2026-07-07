@@ -1,0 +1,141 @@
+{% extends 'base.html' %}
+
+{% block title %}Gerenciamento de Usuários{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto space-y-6">
+    
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-darkBorder pb-4">
+        <div>
+            <h1 class="text-2xl font-bold text-white flex items-center gap-2">
+                <i data-lucide="users" class="w-6 h-6 text-brand-500"></i>
+                Gerenciamento de Usuários
+            </h1>
+            <p class="text-sm text-zinc-400 mt-1">Visualize, inspecione métricas e modere as contas da plataforma.</p>
+        </div>
+        <a href="{{ url_for('painel_admin') }}" class="inline-flex items-center gap-2 px-4 py-2 bg-zinc-900 border border-darkBorder rounded-xl text-sm text-zinc-300 hover:text-white hover:bg-zinc-800 transition-all w-fit">
+            <i data-lucide="arrow-left" class="w-4 h-4"></i> Voltar ao Painel
+        </a>
+    </div>
+
+    <div class="bg-darkCard border border-darkBorder rounded-2xl overflow-hidden shadow-xl">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="border-b border-darkBorder bg-zinc-900/50 text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                        <th class="py-4 px-4 text-center w-16">Info</th>
+                        <th class="py-4 px-4">Código</th>
+                        <th class="py-4 px-4">Nome de Usuário</th>
+                        <th class="py-4 px-4">Departamento</th>
+                        <th class="py-4 px-4">Senha</th>
+                        <th class="py-4 px-4 text-center">Idade</th>
+                        <th class="py-4 px-4">Gênero</th>
+                        <th class="py-4 px-4 text-right pr-6">Ações</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-darkBorder text-sm text-zinc-300">
+                    {% for usuario in usuarios %}
+                    <tr class="hover:bg-zinc-900/30 transition-colors">
+                        <td class="py-4 px-4 text-center">
+                            <button onclick="toggleDetalhes('{{ usuario.codigo }}')" 
+                                    id="btn-toggle-{{ usuario.codigo }}"
+                                    class="inline-flex items-center gap-1 text-xs font-medium text-brand-400 hover:text-brand-300 bg-brand-500/10 hover:bg-brand-500/20 px-2.5 py-1.5 rounded-lg transition-all">
+                                <i data-lucide="plus" id="icon-{{ usuario.codigo }}" class="w-3.5 h-3.5"></i>
+                                <span id="text-{{ usuario.codigo }}">Ver mais</span>
+                            </button>
+                        </td>
+                        <td class="py-4 px-4 font-mono text-xs text-zinc-400">{{ usuario.codigo }}</td>
+                        <td class="py-4 px-4 font-medium text-white">{{ usuario.nome }}</td>
+                        <td class="py-4 px-4">
+                            <span class="px-2.5 py-1 text-xs rounded-md font-medium {% if usuario.departamento == 'admin' %}bg-rose-500/10 text-rose-400 border border-rose-500/20{% else %}bg-zinc-800 text-zinc-400 border border-darkBorder{% endif %}">
+                                {{ usuario.departamento }}
+                            </span>
+                        </td>
+                        <td class="py-4 px-4 font-mono text-xs text-zinc-500 max-w-[120px] truncate" title="{{ usuario.senha }}">{{ usuario.senha }}</td>
+                        <td class="py-4 px-4 text-center">{{ usuario.idade }}</td>
+                        <td class="py-4 px-4 text-zinc-400">{{ usuario.genero if usuario.genero else 'Não informado' }}</td>
+                        <td class="py-4 px-4 text-right pr-6">
+                            <a href="{{ url_for('excluir_usuario', codigo=usuario.codigo) }}" 
+                               onclick="return confirm('Tem certeza que deseja excluir permanentemente este usuário?')"
+                               class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500 text-rose-400 hover:text-white rounded-xl text-xs font-semibold border border-rose-500/20 transition-all">
+                                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                                Excluir
+                            </a>
+                        </td>
+                    </tr>
+
+                    <tr id="detalhes-{{ usuario.codigo }}" class="hidden bg-zinc-950/60 border-t border-darkBorder/40">
+                        <td colspan="8" class="p-4">
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-4xl mx-auto py-2">
+                                
+                                <div class="bg-darkCard/60 border border-darkBorder p-4 rounded-xl flex items-center gap-3">
+                                    <div class="p-2.5 bg-blue-500/10 text-blue-400 rounded-lg">
+                                        <i data-lucide="users-2" class="w-5 h-5"></i>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs text-zinc-500 uppercase font-medium tracking-wider">Seguidores</p>
+                                        <p class="text-lg font-bold text-white mt-0.5">{{ usuario.total_seguidores }}</p>
+                                    </div>
+                                </div>
+
+                                <div class="bg-darkCard/60 border border-darkBorder p-4 rounded-xl flex items-center gap-3">
+                                    <div class="p-2.5 bg-emerald-500/10 text-emerald-400 rounded-lg">
+                                        <i data-lucide="user-plus" class="w-5 h-5"></i>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs text-zinc-500 uppercase font-medium tracking-wider">Seguindo</p>
+                                        <p class="text-lg font-bold text-white mt-0.5">{{ usuario.total_seguindo }}</p>
+                                    </div>
+                                </div>
+
+                                <div class="bg-darkCard/60 border border-darkBorder p-4 rounded-xl flex items-center gap-3">
+                                    <div class="p-2.5 bg-amber-500/10 text-amber-400 rounded-lg">
+                                        <i data-lucide="heart" class="w-5 h-5"></i>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs text-zinc-500 uppercase font-medium tracking-wider">Curtidas Totais</p>
+                                        <p class="text-lg font-bold text-white mt-0.5">{{ usuario.total_curtidas }}</p>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="8" class="py-8 text-center text-zinc-500">
+                            Nenhum usuário cadastrado no sistema.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleDetalhes(codigo) {
+    const linhaDetalhes = document.getElementById('detalhes-' + codigo);
+    const textSpan = document.getElementById('text-' + codigo);
+    const iconEl = document.getElementById('icon-' + codigo);
+    
+    if (linhaDetalhes.classList.contains('hidden')) {
+        // Expandir a linha externa
+        linhaDetalhes.classList.remove('hidden');
+        textSpan.textContent = 'Ver menos';
+        iconEl.setAttribute('data-lucide', 'minus');
+    } else {
+        // Encolher a linha externa
+        linhaDetalhes.classList.add('hidden');
+        textSpan.textContent = 'Ver mais';
+        iconEl.setAttribute('data-lucide', 'plus');
+    }
+    
+    // Atualiza o ícone do Lucide em tempo real na tela
+    if (window.lucide) {
+        lucide.createIcons();
+    }
+}
+</script>
+{% endblock %}

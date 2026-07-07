@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+
+{% block title %}Painel Administrativo{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-6">
+
+    <div class="border-b border-darkBorder pb-4">
+        <h1 class="text-2xl font-bold text-white flex items-center gap-2">
+            <i data-lucide="shield-alert" class="w-6 h-6 text-brand-500"></i>
+            Painel Administrativo
+        </h1>
+        <p class="text-sm text-zinc-400 mt-1">Gerenciamento interno e controle da plataforma FILMASSO.</p>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+        <button
+            class="flex items-center gap-4 p-5 bg-darkCard border border-darkBorder rounded-2xl text-left hover:border-brand-500 hover:bg-zinc-900/60 transition-all group w-full">
+            <a href="{{ url_for('admin_usuarios') }}"
+                class="flex items-center gap-4 p-5 bg-darkCard border border-darkBorder rounded-2xl text-left hover:border-brand-500 hover:bg-zinc-900/60 transition-all group w-full">
+                <div
+                    class="p-3 bg-brand-600/10 rounded-xl text-brand-500 group-hover:bg-brand-600 group-hover:text-white transition-all">
+                    <i data-lucide="users" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h3 class="font-semibold text-white group-hover:text-brand-400 transition-colors">Usuários</h3>
+                    <p class="text-xs text-zinc-500 mt-0.5">Gerenciar membros, cargos e banimentos.</p>
+                </div>
+            </a>
+        </button>
+
+        <button
+            class="flex items-center gap-4 p-5 bg-darkCard border border-darkBorder rounded-2xl text-left hover:border-brand-500 hover:bg-zinc-900/60 transition-all group w-full">
+            <div
+                class="p-3 bg-brand-600/10 rounded-xl text-brand-500 group-hover:bg-brand-600 group-hover:text-white transition-all">
+                <i data-lucide="clapperboard" class="w-6 h-6"></i>
+            </div>
+            <div>
+                <h3 class="font-semibold text-white group-hover:text-brand-400 transition-colors">Obras</h3>
+                <p class="text-xs text-zinc-500 mt-0.5">Adicionar ou moderar filmes e séries.</p>
+            </div>
+        </button>
+
+        <button
+            class="flex items-center gap-4 p-5 bg-darkCard border border-darkBorder rounded-2xl text-left hover:border-brand-500 hover:bg-zinc-900/60 transition-all group w-full">
+            <div
+                class="p-3 bg-brand-600/10 rounded-xl text-brand-500 group-hover:bg-brand-600 group-hover:text-white transition-all">
+                <i data-lucide="film" class="w-6 h-6"></i>
+            </div>
+            <div>
+                <h3 class="font-semibold text-white group-hover:text-brand-400 transition-colors">Estúdios</h3>
+                <p class="text-xs text-zinc-500 mt-0.5">Cadastrar e organizar estúdios de produção.</p>
+            </div>
+        </button>
+
+        <div
+            class="flex items-center gap-4 p-5 bg-zinc-900/20 border border-darkBorder/40 border-dashed rounded-2xl opacity-40 select-none">
+            <div class="p-3 bg-zinc-800 rounded-xl text-zinc-600">
+                <i data-lucide="plus" class="w-6 h-6"></i>
+            </div>
+            <div>
+                <h3 class="font-semibold text-zinc-500">Nova Função</h3>
+                <p class="text-xs text-zinc-600 mt-0.5">Espaço reservado para futuras atualizações.</p>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
