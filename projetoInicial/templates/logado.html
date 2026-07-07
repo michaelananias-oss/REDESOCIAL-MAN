@@ -21,7 +21,7 @@
         <div class="bg-darkCard border border-darkBorder rounded-2xl p-6 space-y-4 hover:border-zinc-800 transition-all">
             
             <div class="flex items-center justify-between">
-                <div class="flex items-center gap-3">
+                <a href="{{ url_for('rotaPerfil', usuario_codigo=post.usuario_codigo) }}" class="flex items-center gap-3 hover:opacity-80 transition-all">
                     <img class="w-10 h-10 rounded-xl object-cover bg-zinc-800 border border-zinc-700/50" 
                          src="{{ post.usuario_avatar if post.usuario_avatar else 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=150' }}" 
                          alt="Avatar de {{ post.usuario_nome }}">
@@ -29,7 +29,7 @@
                         <h4 class="text-sm font-bold text-zinc-200">{{ post.usuario_nome }}</h4>
                         <p class="text-[10px] text-zinc-500 font-medium font-mono mt-0.5">{{ post.data_postagem }}</p>
                     </div>
-                </div>
+                </a>
                 
 <div class="flex items-center gap-2">
     {% if post.filme_titulo %}
@@ -63,23 +63,60 @@
             {% endif %}
 
             <div class="flex items-center gap-4 pt-3 border-t border-darkBorder text-xs">
-                <form action="/logado/curtir/{{ post.id }}" method="POST">
-                    <button type="submit" class="flex items-center gap-1.5 text-zinc-400 hover:text-rose-400 transition-all font-semibold bg-transparent border-0 cursor-pointer">
-                        <i data-lucide="heart" class="w-4 h-4 {% if post.curtidas > 0 %}text-rose-500 fill-rose-500{% endif %}"></i> 
-                        <span>{{ post.curtidas }} Curtidas</span>
-                    </button>
-                </form>
+                <button type="button" onclick="curtirPost({{ post.id }}, this)"
+                    class="curtir-btn flex items-center gap-1.5 text-zinc-400 hover:text-rose-400 transition-all font-semibold bg-transparent border-0 cursor-pointer">
+                    <i data-lucide="heart" class="curtir-icon w-4 h-4 {% if post.id|string in lista_curtidas %}text-rose-500 fill-rose-500{% endif %}"></i> 
+                    <span class="curtir-contador">{{ post.curtidas }} Curtidas</span>
+                </button>
+
+                {% if post.usuario_codigo|string != session['user']['codigo']|string %}
+                <button type="button" onclick="seguirUsuario('{{ post.usuario_codigo }}', this)"
+                    class="seguir-btn flex items-center gap-1.5 transition-all font-semibold bg-transparent border-0 cursor-pointer {% if post.usuario_codigo|string in lista_seguindo %}text-brand-400 hover:text-zinc-400{% else %}text-zinc-400 hover:text-brand-400{% endif %}">
+                    <i data-lucide="{% if post.usuario_codigo|string in lista_seguindo %}user-check{% else %}user-plus{% endif %}" class="seguir-icon w-4 h-4"></i>
+                    <span class="seguir-texto">{% if post.usuario_codigo|string in lista_seguindo %}Seguindo{% else %}Seguir{% endif %}</span>
+                </button>
+                {% endif %}
             </div>
 
             {% if post.comentarios %}
-            <div class="bg-zinc-950/40 border border-darkBorder/60 rounded-xl p-4 space-y-3 mt-2">
+            <div class="bg-zinc-950/40 border border-darkBorder/60 rounded-xl p-4 space-y-4 mt-2">
                 {% for com in post.comentarios %}
-                <div class="text-xs flex flex-col gap-1 border-b border-zinc-900 last:border-0 pb-2 last:pb-0">
-                    <div class="flex items-center gap-1.5">
-                        <span class="font-bold text-zinc-300">{{ com.usuario_nome }}</span>
-                        <span class="text-[9px] text-zinc-600 font-mono">#{{ com.usuario_codigo }}</span>
+                <div class="text-xs flex flex-col gap-1 border-b border-zinc-900 last:border-0 pb-3 last:pb-0" id="comentario-{{ com.id }}">
+                    <div class="flex items-center justify-between gap-2">
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                            <a href="{{ url_for('rotaPerfil', usuario_codigo=com.usuario_codigo) }}" class="font-bold text-zinc-300 hover:text-brand-400 transition-all">{{ com.usuario_nome }}</a>
+                            <span class="text-[9px] text-zinc-600 font-mono">#{{ com.usuario_codigo }}</span>
+                            <span class="text-[9px] text-zinc-600">
+                                {% if com.editado %}editado ({{ com.data_comentario }}){% else %}{{ com.data_comentario }}{% endif %}
+                            </span>
+                        </div>
+
+                        {% if com.usuario_codigo|string == session['user']['codigo']|string or session['user']['isAdmin'] %}
+                        <div class="flex items-center gap-1 shrink-0">
+                            {% if com.usuario_codigo|string == session['user']['codigo']|string %}
+                            <button type="button" onclick="alternarEdicaoComentario({{ com.id }})" class="text-zinc-500 hover:text-brand-400 transition-all p-1 rounded-lg hover:bg-brand-500/10" title="Editar Comentário">
+                                <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+                            </button>
+                            {% endif %}
+                            <form action="/logado/comentario/excluir/{{ com.id }}" method="POST" onsubmit="return confirm('Tem certeza que deseja excluir este comentário?');" class="inline">
+                                <button type="submit" class="text-zinc-500 hover:text-red-500 transition-all p-1 rounded-lg hover:bg-red-500/10" title="Excluir Comentário">
+                                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                                </button>
+                            </form>
+                        </div>
+                        {% endif %}
                     </div>
-                    <p class="text-zinc-400 leading-normal">{{ com.conteudo }}</p>
+
+                    <p id="texto-comentario-{{ com.id }}" class="text-zinc-400 leading-normal">{{ com.conteudo }}</p>
+
+                    {% if com.usuario_codigo|string == session['user']['codigo']|string %}
+                    <form id="form-editar-comentario-{{ com.id }}" action="/logado/comentario/editar/{{ com.id }}" method="POST" class="hidden gap-2 pt-1">
+                        <input type="text" name="conteudo_comentario_editado" value="{{ com.conteudo }}" required maxlength="500"
+                            class="flex-1 px-3 py-2 bg-zinc-900 border border-darkBorder rounded-lg text-xs text-zinc-300 focus:outline-none focus:ring-1 focus:ring-brand-500">
+                        <button type="submit" class="bg-brand-600 hover:bg-brand-500 text-white px-3 py-2 rounded-lg text-[11px] font-bold shrink-0">Salvar</button>
+                        <button type="button" onclick="alternarEdicaoComentario({{ com.id }})" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-2 rounded-lg text-[11px] font-bold shrink-0">Cancelar</button>
+                    </form>
+                    {% endif %}
                 </div>
                 {% endfor %}
             </div>
@@ -216,5 +253,67 @@
             lucide.createIcons();
         }
     });
+
+    // --- NOVIDADE: CURTIR E SEGUIR SEM RECARREGAR A PÁGINA ---
+    function curtirPost(postId, botao) {
+        fetch(`/logado/curtir/${postId}`, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (!data.success) return;
+            const icone = botao.querySelector('.curtir-icon');
+            const contador = botao.querySelector('.curtir-contador');
+            if (data.curtiu) {
+                icone.classList.add('text-rose-500', 'fill-rose-500');
+            } else {
+                icone.classList.remove('text-rose-500', 'fill-rose-500');
+            }
+            contador.textContent = `${data.total} Curtidas`;
+        })
+        .catch(err => console.error('Erro ao curtir:', err));
+    }
+
+    function seguirUsuario(seguidoId, botao) {
+        fetch(`/seguir/${seguidoId}`, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (!data.success) return;
+            const icone = botao.querySelector('.seguir-icon');
+            const texto = botao.querySelector('.seguir-texto');
+            if (data.seguindo) {
+                texto.textContent = 'Seguindo';
+                icone.setAttribute('data-lucide', 'user-check');
+                botao.classList.remove('text-zinc-400', 'hover:text-brand-400');
+                botao.classList.add('text-brand-400', 'hover:text-zinc-400');
+            } else {
+                texto.textContent = 'Seguir';
+                icone.setAttribute('data-lucide', 'user-plus');
+                botao.classList.remove('text-brand-400', 'hover:text-zinc-400');
+                botao.classList.add('text-zinc-400', 'hover:text-brand-400');
+            }
+            if (window.lucide) lucide.createIcons();
+        })
+        .catch(err => console.error('Erro ao seguir:', err));
+    }
+
+    // --- NOVIDADE: EDITAR COMENTÁRIO INLINE ---
+    function alternarEdicaoComentario(id) {
+        const texto = document.getElementById('texto-comentario-' + id);
+        const form = document.getElementById('form-editar-comentario-' + id);
+        if (form.classList.contains('hidden')) {
+            texto.classList.add('hidden');
+            form.classList.remove('hidden');
+            form.classList.add('flex');
+        } else {
+            texto.classList.remove('hidden');
+            form.classList.add('hidden');
+            form.classList.remove('flex');
+        }
+    }
 </script>
 {% endblock %}
