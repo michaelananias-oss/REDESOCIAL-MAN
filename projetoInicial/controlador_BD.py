@@ -749,6 +749,89 @@ def marcarNotificacaoLida(id_notificacao):
     conexao.commit()
     conexao.close()
 
+def listarUsuariosDetalhado():
+    """ Retorna a lista de usuários com contagens agregadas perfeitamente alinhadas ao banco """
+    import sqlite3 as sqlite
+    conexao = sqlite.connect('database.sqlite')
+    conexao.row_factory = sqlite.Row
+    cursor = conexao.cursor()
+    
+    try:
+        cursor.execute("SELECT genero FROM funcionarios LIMIT 1")
+        coluna_genero = "f.genero"
+    except sqlite.OperationalError:
+        coluna_genero = "'Não Informado' AS genero"
+
+    # Query exata baseada nas colunas reais do seu banco de dados
+    query = f"""
+        SELECT f.codigo, f.nome, f.departamento, f.senha, f.idade, {coluna_genero},
+        (SELECT COUNT(*) FROM seguidores WHERE seguido_id = f.codigo) AS total_seguidores,
+        (SELECT COUNT(*) FROM seguidores WHERE usuario_id = f.codigo) AS total_seguindo,
+        (SELECT COALESCE(SUM(curtidas), 0) FROM postagens WHERE usuario_codigo = f.codigo) AS total_curtidas
+        FROM funcionarios f
+        ORDER BY f.nome
+    """
+    
+    try:
+        cursor.execute(query)
+        dados = cursor.fetchall()
+    except sqlite.OperationalError:
+        cursor.execute(f"SELECT codigo, nome, departamento, senha, idade, {coluna_genero} FROM funcionarios ORDER BY nome")
+        dados_base = cursor.fetchall()
+        dados = []
+        for item in dados_base:
+            row = dict(item)
+            row['total_seguidores'] = 0
+            row['total_seguindo'] = 0
+            row['total_curtidas'] = 0
+            dados.append(row)
+            
+    conexao.close()
+    return dados
+
+def removerUsuario(codigo):
+    """ 
+    Remove um usuário e limpa em cascata absolutamente todos os seus registros associados
+    (postagens, curtidas enviadas/recebidas, comentários enviados/recebidos, seguidores e notificações)
+    """
+    import sqlite3 as sqlite
+    conexao = sqlite.connect('database.sqlite')
+    cursor = conexao.cursor()
+    
+    try:
+        # Converter para string caso venha como int do formulário
+        user_code = str(codigo)
+
+        # 1. Deletar comentários feitos NOS posts deste usuário e cometários feitos POR este usuário
+        cursor.execute("DELETE FROM comentarios WHERE postagem_id IN (SELECT id FROM postagens WHERE usuario_codigo = ?)", (user_code,))
+        cursor.execute("DELETE FROM comentarios WHERE usuario_codigo = ?", (user_code,))
+
+        # 2. Deletar curtidas dadas NOS posts deste usuário e curtidas dadas POR este usuário
+        cursor.execute("DELETE FROM curtidas WHERE postagem_id IN (SELECT id FROM postagens WHERE usuario_codigo = ?)", (user_code,))
+        cursor.execute("DELETE FROM curtidas WHERE usuario_codigo = ?", (user_code,))
+
+        # 3. Deletar todas as postagens criadas por este usuário
+        cursor.execute("DELETE FROM postagens WHERE usuario_codigo = ?", (user_code,))
+
+        # 4. Deletar vínculos de redes sociais (quem ele segue e quem segue ele)
+        cursor.execute("DELETE FROM seguidores WHERE usuario_id = ? OR seguido_id = ?", (user_code, user_code))
+
+        # 5. Deletar notificações enviadas PARA ele ou geradas POR ele
+        cursor.execute("DELETE FROM notificacoes WHERE usuario_id = ? OR autor_codigo = ?", (user_code, user_code))
+
+        # 6. Por fim, deletar o próprio perfil de usuário
+        cursor.execute("DELETE FROM funcionarios WHERE codigo = ?", (user_code,))
+
+        # Salva todas as remoções juntas de forma segura
+        conexao.commit()
+        print(f"Usuário {user_code} e todos os seus vínculos foram apagados com sucesso.")
+        
+    except sqlite.Error as e:
+        conexao.rollback()
+        print(f"Erro ao remover usuário em cascata: {e}")
+        raise e
+    finally:
+        conexao.close()
 
 criarTabelasCinema()
 inicializar_novas_colunas()
