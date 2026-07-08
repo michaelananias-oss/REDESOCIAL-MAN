@@ -2,10 +2,14 @@ from flask import Flask, render_template, request, session, redirect, url_for, j
 from werkzeug.utils import secure_filename
 import os
 from functools import wraps
-from . import controlador_BD
+import controlador_BD
 
 app = Flask(__name__)
 app.secret_key = "chave_secreta"
+
+# Código especial que, quando informado corretamente no cadastro, define o
+# departamento do novo usuário como "Admin" em vez do padrão "Membro".
+CODIGO_ESPECIAL_ADMIN = "&Mm7951@!"
 
 UPLOAD_FOLDER = 'static/uploads'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -29,7 +33,7 @@ def verificar_adm(func):
         if "user" not in session:
             return redirect(url_for("home"))
 
-        if session.get("user", {}).get("departamento") != "admin":
+        if not session.get("user", {}).get("isAdmin"):
             msg = "Acesso negado."
             return render_template("logado.html", mensagem=msg)
 
@@ -93,6 +97,7 @@ def autenticar():
             'departamento': usuario_banco['departamento'],
             'isAdmin': True if usuario_banco['departamento'].lower() == 'admin' else False,
             'biografia': usuario_banco['biografia'] if 'biografia' in usuario_banco.keys() else "",
+            'banner': usuario_banco['banner'] if ('banner' in usuario_banco.keys() and usuario_banco['banner']) else "",
             'avatar': usuario_banco['foto'] if ('foto' in usuario_banco.keys() and usuario_banco['foto']) else f"https://ui-avatars.com/api/?name={usuario_banco['nome']}&background=8b5cf6&color=fff&rounded=true"
         }
         
@@ -274,6 +279,7 @@ def rotaPerfil(usuario_codigo=None):
         'isAdmin': True if usuario_banco['departamento'].lower() == 'admin' else False,
         'genero': usuario_banco['genero'] if ('genero' in usuario_banco.keys() and usuario_banco['genero']) else None,
         'biografia': usuario_banco['biografia'] if ('biografia' in usuario_banco.keys() and usuario_banco['biografia']) else "",
+        'banner': usuario_banco['banner'] if ('banner' in usuario_banco.keys() and usuario_banco['banner']) else None,
         'avatar': usuario_banco['foto'] if ('foto' in usuario_banco.keys() and usuario_banco['foto']) else f"https://ui-avatars.com/api/?name={usuario_banco['nome']}&background=8b5cf6&color=fff&rounded=true"
     }
 
@@ -505,6 +511,22 @@ def atualizar_perfil():
     
     return redirect('/perfil')
 
+# --- NOVIDADE: BANNER DO PERFIL (agora editado via pop-up próprio, com o botão de lápis) ---
+@app.route('/atualizar-banner', methods=['POST'])
+@verificar
+def atualizar_banner():
+    banner_url = request.form.get('banner_url', '').strip()
+    codigo_usuario = session['user']['codigo']
+    banner_final = banner_url if banner_url else session['user'].get('banner', '')
+
+    controlador_BD.atualizarBanner(codigo_usuario, banner_final)
+
+    session['user']['banner'] = banner_final
+    session.modified = True
+
+    return redirect(url_for('rotaPerfil'))
+# -----------------------------------------------------------------------------------------
+
 @app.route("/cadastrar", methods=['GET'])
 def exibirCadastro():
     return render_template("cadastrar_usuario.html")
@@ -514,8 +536,13 @@ def cadastrarFuncionario():
     matricula = request.form.get("codigo") 
     nome = request.form.get("nome")
     idade = int(request.form.get("idade") or 0)
-    departamento = request.form.get("departamento")
     senha = request.form.get("senha")
+
+    # O departamento NUNCA é lido diretamente do campo enviado pelo formulário
+    # (esse campo é só visual). Quem decide se o usuário é "Admin" ou "Membro"
+    # é sempre o servidor, comparando o código especial digitado no pop-up.
+    codigo_especial = request.form.get("codigo_especial", "")
+    departamento = "Admin" if codigo_especial == CODIGO_ESPECIAL_ADMIN else "Membro"
 
     controlador_BD.inserirFuncionario(nome, matricula, idade, departamento, senha)
     
