@@ -167,10 +167,10 @@
                             <i data-lucide="layout-grid" class="w-5 h-5 text-brand-500"></i> Feed Novidades
                         </a>
 
-                        {% if session.get('user') and session['user'].get('departamento') == 'admin' %}
+                        {% if session.get('user') and session['user']['isAdmin'] %}
                         <a href="/database"
                             class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-zinc-300 hover:bg-zinc-800/50 transition-all">
-                            <i data-lucide="database" class="w-5 h-5 text-brand-500"></i> Database
+                            <i data-lucide="database" class="w-5 h-5 text-brand-500"></i> Obras e Estúdios
                         </a>
                         {% endif %}
 
