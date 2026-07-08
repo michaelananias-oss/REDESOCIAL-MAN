@@ -833,6 +833,62 @@ def removerUsuario(codigo):
     finally:
         conexao.close()
 
+def _aplicarFallbackAvatar(lista):
+    """ Garante que todo usuário da lista tenha uma foto válida, gerando um avatar
+        automático (ui-avatars) para quem ainda não definiu uma foto de perfil. """
+    for usuario in lista:
+        if not usuario.get('foto'):
+            usuario['foto'] = f"https://ui-avatars.com/api/?name={usuario['nome']}&background=8b5cf6&color=fff&rounded=true"
+    return lista
+
+def listarCurtidasDoPost(id_postagem):
+    """ Retorna a lista (codigo, nome, foto) de todos os usuários que curtiram uma postagem específica """
+    conexao = sqlite.connect('database.sqlite')
+    conexao.row_factory = sqlite.Row
+    cursor = conexao.cursor()
+    cursor.execute('''
+        SELECT f.codigo AS codigo, f.nome AS nome, f.foto AS foto
+        FROM curtidas c
+        JOIN funcionarios f ON f.codigo = c.usuario_codigo
+        WHERE c.postagem_id = ?
+        ORDER BY f.nome ASC
+    ''', (id_postagem,))
+    dados = [dict(row) for row in cursor.fetchall()]
+    conexao.close()
+    return _aplicarFallbackAvatar(dados)
+
+def listarSeguidoresDetalhado(usuario_codigo):
+    """ Retorna a lista (codigo, nome, foto) de todos os usuários que seguem o usuário informado """
+    conexao = sqlite.connect('database.sqlite')
+    conexao.row_factory = sqlite.Row
+    cursor = conexao.cursor()
+    cursor.execute('''
+        SELECT f.codigo AS codigo, f.nome AS nome, f.foto AS foto
+        FROM seguidores s
+        JOIN funcionarios f ON f.codigo = s.usuario_id
+        WHERE s.seguido_id = ?
+        ORDER BY f.nome ASC
+    ''', (str(usuario_codigo),))
+    dados = [dict(row) for row in cursor.fetchall()]
+    conexao.close()
+    return _aplicarFallbackAvatar(dados)
+
+def listarSeguindoDetalhado(usuario_codigo):
+    """ Retorna a lista (codigo, nome, foto) de todos os usuários que o usuário informado segue """
+    conexao = sqlite.connect('database.sqlite')
+    conexao.row_factory = sqlite.Row
+    cursor = conexao.cursor()
+    cursor.execute('''
+        SELECT f.codigo AS codigo, f.nome AS nome, f.foto AS foto
+        FROM seguidores s
+        JOIN funcionarios f ON f.codigo = s.seguido_id
+        WHERE s.usuario_id = ?
+        ORDER BY f.nome ASC
+    ''', (str(usuario_codigo),))
+    dados = [dict(row) for row in cursor.fetchall()]
+    conexao.close()
+    return _aplicarFallbackAvatar(dados)
+
 criarTabelasCinema()
 inicializar_novas_colunas()
 inicializar_colunas_comentarios()
