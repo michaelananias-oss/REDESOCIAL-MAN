@@ -71,7 +71,8 @@ def autenticar(func):
 def home():
     if "usuario" in session:
         return redirect(url_for("rotaLogado"))
-    return render_template("home.html", logado=False)
+    postagens = controlador_BD.listarPostagens()
+    return render_template("home.html", logado=False, postagens=postagens)
 
 @app.route('/autenticar', methods=['POST'])
 def autenticar():
@@ -99,7 +100,8 @@ def autenticar():
         return redirect('/logado')
     
     else:
-        return render_template('home.html', mensagem="Código ou senha incorretos!")
+        postagens = controlador_BD.listarPostagens()
+        return render_template('home.html', login_mensagem="Código ou senha incorretos!", postagens=postagens)
 
 
 controlador_BD.criarTabelaPostagensEComentarios()
@@ -195,6 +197,13 @@ def curtir_feed(id_postagem):
 
     return redirect(request.referrer or url_for('feed_logado'))
 
+@app.route("/logado/curtidas/<int:id_postagem>")
+@verificar
+def listarCurtidasPostagem(id_postagem):
+    """ Retorna em JSON a lista de usuários que curtiram a postagem (usado pelo pop-up de Status) """
+    usuarios = controlador_BD.listarCurtidasDoPost(id_postagem)
+    return jsonify(usuarios=usuarios)
+
 @app.route("/logado/comentar/<int:id_postagem>", methods=["POST"])
 @verificar
 def comentar_feed(id_postagem):
@@ -287,6 +296,20 @@ def rotaPerfil(usuario_codigo=None):
         total_seguindo=total_seguindo,
         ja_segue=ja_segue
     )
+
+@app.route("/perfil/<string:usuario_codigo>/seguidores")
+@verificar
+def listarSeguidoresPerfil(usuario_codigo):
+    """ Retorna em JSON a lista de quem segue o usuário informado (pop-up de Seguidores) """
+    usuarios = controlador_BD.listarSeguidoresDetalhado(usuario_codigo)
+    return jsonify(usuarios=usuarios)
+
+@app.route("/perfil/<string:usuario_codigo>/seguindo")
+@verificar
+def listarSeguindoPerfil(usuario_codigo):
+    """ Retorna em JSON a lista de quem o usuário informado segue (pop-up de Seguindo) """
+    usuarios = controlador_BD.listarSeguindoDetalhado(usuario_codigo)
+    return jsonify(usuarios=usuarios)
 
 # =====================================================================
 # --- NOVIDADE: SEGUIR USUÁRIOS E NOTIFICAÇÕES ---
@@ -567,6 +590,13 @@ def buscarFuncionario(codigo):
     if funcionario:
         return funcionario
     return None
+
+@app.after_request
+def adicionar_cabecalhos_sem_cache(response):
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
 
 if __name__ == '__main__':
     app.run(debug=True)
