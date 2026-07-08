@@ -32,14 +32,16 @@
                         <p class="text-base font-bold text-white leading-none">{{ total_posts }}</p>
                         <p class="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold mt-1">Posts</p>
                     </div>
-                    <div class="text-center">
+                    <button type="button" onclick="abrirListaPessoas('Seguidores', '/perfil/{{ perfil_user['codigo'] }}/seguidores', 'Nenhum seguidor ainda.')"
+                        class="text-center bg-transparent border-0 cursor-pointer hover:opacity-75 transition-all">
                         <p class="text-base font-bold text-white leading-none">{{ total_seguidores }}</p>
                         <p class="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold mt-1">Seguidores</p>
-                    </div>
-                    <div class="text-center">
+                    </button>
+                    <button type="button" onclick="abrirListaPessoas('Seguindo', '/perfil/{{ perfil_user['codigo'] }}/seguindo', 'Não está seguindo ninguém ainda.')"
+                        class="text-center bg-transparent border-0 cursor-pointer hover:opacity-75 transition-all">
                         <p class="text-base font-bold text-white leading-none">{{ total_seguindo }}</p>
                         <p class="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold mt-1">Seguindo</p>
-                    </div>
+                    </button>
                 </div>
             </div> {% if eh_meu_perfil %}<button onclick="openEditProfileModal()" class="bg-zinc-800 hover:bg-zinc-700 border border-zinc-700/50 text-zinc-200 text-xs font-bold px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 relative z-10 self-center sm:self-end">
                 <i data-lucide="edit-3" class="w-3.5 h-3.5"></i> Editar Perfil
@@ -157,6 +159,11 @@
                     <span class="seguir-texto">{% if post.usuario_codigo|string in lista_seguindo %}Seguindo{% else %}Seguir{% endif %}</span>
                 </button>
                 {% endif %}
+
+                <button type="button" onclick="abrirListaPessoas('Quem curtiu', '/logado/curtidas/{{ post.id }}', 'Ninguém curtiu esta postagem ainda.')"
+                    class="ml-auto flex items-center gap-1.5 text-zinc-400 hover:text-brand-400 transition-all font-semibold bg-transparent border-0 cursor-pointer">
+                    <i data-lucide="users" class="w-4 h-4"></i> Status
+                </button>
             </div>
 
             {% if post.comentarios %}
