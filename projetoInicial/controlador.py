@@ -2,7 +2,7 @@ from flask import Flask, render_template, request, session, redirect, url_for, j
 from werkzeug.utils import secure_filename
 import os
 from functools import wraps
-import controlador_BD
+from . import controlador_BD
 
 app = Flask(__name__)
 app.secret_key = "chave_secreta"
