@@ -76,6 +76,11 @@
                     <span class="seguir-texto">{% if post.usuario_codigo|string in lista_seguindo %}Seguindo{% else %}Seguir{% endif %}</span>
                 </button>
                 {% endif %}
+
+                <button type="button" onclick="abrirListaPessoas('Quem curtiu', '/logado/curtidas/{{ post.id }}', 'Ninguém curtiu esta postagem ainda.')"
+                    class="ml-auto flex items-center gap-1.5 text-zinc-400 hover:text-brand-400 transition-all font-semibold bg-transparent border-0 cursor-pointer">
+                    <i data-lucide="users" class="w-4 h-4"></i> Status
+                </button>
             </div>
 
             {% if post.comentarios %}
