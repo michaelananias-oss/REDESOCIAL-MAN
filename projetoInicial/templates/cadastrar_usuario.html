@@ -39,12 +39,24 @@
         </div>
 
         <div>
-            <label for="departamento" class="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">Departamento / Cargo</label>
+            <label for="departamento_display" class="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">Departamento / Cargo</label>
             <div class="relative">
                 <i data-lucide="briefcase" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500"></i>
-                <input type="text" id="departamento" name="departamento" required placeholder="Ex: TI (Administrador) ou Cinema (Membro)" class="w-full pl-10 pr-4 py-3 bg-zinc-950 border border-darkBorder rounded-xl text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-brand-500 focus:border-brand-500">
+                <input type="text" id="departamento_display" readonly value="Membro"
+                    class="w-full pl-10 pr-12 py-3 bg-zinc-950 border border-darkBorder rounded-xl text-sm text-zinc-200 cursor-default focus:outline-none">
+
+                <!-- Campo real enviado ao servidor. O valor é sempre recalculado no back-end
+                     a partir do código especial, então este campo serve apenas de espelho visual. -->
+                <input type="hidden" id="departamento" name="departamento" value="Membro">
+                <!-- Código especial digitado no pop-up (validado de verdade no servidor) -->
+                <input type="hidden" id="codigo_especial" name="codigo_especial" value="">
+
+                <button type="button" onclick="abrirModalCodigoEspecial()" title="Código Especial"
+                    class="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-zinc-500 hover:text-brand-400 bg-zinc-900 hover:bg-zinc-800 border border-darkBorder rounded-lg transition-all">
+                    <i data-lucide="settings" class="w-4 h-4"></i>
+                </button>
             </div>
-            <p class="text-[10px] text-zinc-500 mt-1">Este campo determina os seus privilégios administrativos no sistema.</p>
+            <p id="departamento_dica" class="text-[10px] text-zinc-500 mt-1">Toda conta nova começa como <span class="font-semibold text-zinc-300">Membro</span>. Possui um código especial de administrador? Clique na engrenagem ao lado (opcional).</p>
         </div>
 
         <div>
@@ -66,4 +78,76 @@
     <p style="color: green;">{{ mensagem }}</p>
     {% endif %}
 </div>
+
+<!-- Pop-up: Código Especial (define o departamento como Admin quando o código correto é informado) -->
+<div id="modal-codigo-especial" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+    onclick="if (event.target === this) fecharModalCodigoEspecial();">
+    <div class="bg-darkCard border border-darkBorder w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden">
+        <div class="p-5 border-b border-darkBorder flex items-center justify-between">
+            <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                <i data-lucide="settings" class="text-brand-500 w-4 h-4"></i> Código Especial
+            </h3>
+            <button type="button" onclick="fecharModalCodigoEspecial()" class="text-zinc-500 hover:text-zinc-300 transition-all">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+        <div class="p-5 space-y-3">
+            <p class="text-xs text-zinc-400 leading-relaxed">Se você possui um código especial de administrador, informe-o abaixo. Este campo não é obrigatório — sem ele, sua conta continua como Membro.</p>
+            <input type="password" id="input-codigo-especial" placeholder="Digite o código especial..."
+                onkeydown="if (event.key === 'Enter') { event.preventDefault(); confirmarCodigoEspecial(); }"
+                class="w-full px-4 py-3 bg-zinc-950 border border-darkBorder rounded-xl text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-brand-500 focus:border-brand-500">
+            <p id="erro-codigo-especial" class="hidden text-[11px] text-red-400">Código incorreto. Verifique e tente novamente.</p>
+        </div>
+        <div class="p-5 pt-0 flex gap-3">
+            <button type="button" onclick="fecharModalCodigoEspecial()"
+                class="flex-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-semibold py-2.5 rounded-xl transition-all">Cancelar</button>
+            <button type="button" onclick="confirmarCodigoEspecial()"
+                class="flex-1 bg-gradient-to-r from-brand-600 to-purple-600 hover:from-brand-500 hover:to-purple-500 text-white text-xs font-bold py-2.5 rounded-xl transition-all">Confirmar</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- CÓDIGO ESPECIAL: torna o cadastro em "Admin" quando o código correto é digitado ---
+    // Observação: esta parte em JavaScript é só a experiência visual (mostrar "Admin" no campo).
+    // A validação que realmente importa é feita no servidor (controlador.py), então ninguém
+    // consegue virar administrador só editando o HTML no navegador.
+    var CODIGO_ESPECIAL_ADMIN = "&Mm7951@!";
+
+    function abrirModalCodigoEspecial() {
+        var modal = document.getElementById('modal-codigo-especial');
+        if (modal) modal.classList.remove('hidden');
+        var input = document.getElementById('input-codigo-especial');
+        if (input) input.focus();
+    }
+
+    function fecharModalCodigoEspecial() {
+        var modal = document.getElementById('modal-codigo-especial');
+        if (modal) modal.classList.add('hidden');
+        var erro = document.getElementById('erro-codigo-especial');
+        if (erro) erro.classList.add('hidden');
+    }
+
+    function confirmarCodigoEspecial() {
+        var input = document.getElementById('input-codigo-especial');
+        var erro = document.getElementById('erro-codigo-especial');
+        var codigoDigitado = input ? input.value : '';
+
+        if (codigoDigitado === CODIGO_ESPECIAL_ADMIN) {
+            document.getElementById('departamento_display').value = 'Admin';
+            document.getElementById('departamento').value = 'Admin';
+            document.getElementById('codigo_especial').value = codigoDigitado;
+
+            var dica = document.getElementById('departamento_dica');
+            if (dica) {
+                dica.innerHTML = '<span class="font-semibold text-emerald-400">Modo administrador ativado.</span> Sua conta será criada com privilégios de Admin.';
+            }
+
+            input.value = '';
+            fecharModalCodigoEspecial();
+        } else {
+            erro.classList.remove('hidden');
+        }
+    }
+</script>
 {% endblock %}
